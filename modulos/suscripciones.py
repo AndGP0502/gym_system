@@ -47,3 +47,45 @@ def ver_suscripciones():
     conexion.close()
 
     return datos
+
+def ver_estado_gimnasio():
+
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+    SELECT clientes.nombre,
+           membresias.nombre_plan,
+           suscripciones.fecha_vencimiento,
+           suscripciones.pagado,
+           suscripciones.pendiente
+    FROM suscripciones
+    JOIN clientes ON suscripciones.cliente_id = clientes.id
+    JOIN membresias ON suscripciones.membresia_id = membresias.id
+    """)
+
+    datos = cursor.fetchall()
+
+    conexion.close()
+
+    return datos
+
+def ver_clientes_vencidos():
+
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    hoy = datetime.now().strftime("%Y-%m-%d")
+
+    cursor.execute("""
+    SELECT clientes.nombre, suscripciones.fecha_vencimiento
+    FROM suscripciones
+    JOIN clientes ON suscripciones.cliente_id = clientes.id
+    WHERE suscripciones.fecha_vencimiento < ?
+    """, (hoy,))
+
+    datos = cursor.fetchall()
+
+    conexion.close()
+
+    return datos
