@@ -2,7 +2,12 @@ import sqlite3
 
 conexion = sqlite3.connect("gym.db")
 
+conexion.execute("PRAGMA foreign_keys = ON")
+
 cursor = conexion.cursor()
+
+# activar claves foraneas
+conexion.execute("PRAGMA foreign_keys = ON")
 
 # tabla clientes
 cursor.execute("""
@@ -35,6 +40,17 @@ fecha_vencimiento TEXT,
 precio_total REAL,
 pagado REAL,
 pendiente REAL
+)
+""")
+
+# tabla de cada pago que se hace
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS pagos(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+suscripcion_id INTEGER,
+monto REAL,
+fecha_pago TEXT,
+FOREIGN KEY(suscripcion_id) REFERENCES suscripciones(id)
 )
 """)
 
