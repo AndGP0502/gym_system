@@ -84,13 +84,50 @@ def listar_suscripciones_para_pago():
     cursor = conexion.cursor()
 
     cursor.execute("""
-    SELECT suscripciones.id,
-           clientes.nombre,
-           suscripciones.pendiente
-    FROM suscripciones
-    JOIN clientes ON suscripciones.cliente_id = clientes.id
-    WHERE suscripciones.pendiente > 0
+    SELECT
+        c.id,
+        c.nombre,
+        s.id,
+        m.nombre_plan,
+        s.precio_total,
+        s.pagado,
+        s.pendiente,
+        s.fecha_inicio,
+        s.fecha_vencimiento
+    FROM suscripciones s
+    JOIN clientes c ON s.cliente_id = c.id
+    JOIN membresias m ON s.membresia_id = m.id
+    ORDER BY s.id
     """)
+
+    datos = cursor.fetchall()
+
+    conexion.close()
+
+    return datos
+
+def buscar_cliente_pagos(cliente_id):
+
+    import sqlite3
+
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+    SELECT
+        s.id,
+        c.nombre,
+        m.nombre_plan,
+        s.precio_total,
+        s.pagado,
+        s.pendiente,
+        s.fecha_inicio,
+        s.fecha_vencimiento
+    FROM suscripciones s
+    JOIN clientes c ON s.cliente_id = c.id
+    JOIN membresias m ON s.membresia_id = m.id
+    WHERE c.id = ?
+    """, (cliente_id,))
 
     datos = cursor.fetchall()
 
