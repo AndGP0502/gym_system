@@ -1,7 +1,7 @@
 import sqlite3
 
 
-# funcion para crear una membresia
+# función para crear una membresía
 def crear_membresia(nombre_plan, precio, duracion_dias):
 
     if precio <= 0:
@@ -33,7 +33,7 @@ def crear_membresia(nombre_plan, precio, duracion_dias):
     print("Membresía creada correctamente")
 
 
-# funcion para ver las membresias
+# función para ver las membresías
 def ver_membresias():
 
     conexion = sqlite3.connect("gym.db")
@@ -46,3 +46,16 @@ def ver_membresias():
     conexion.close()
 
     return membresias
+
+
+# función para eliminar una membresía por id
+def eliminar_membresia(id_membresia):
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    cursor.execute("DELETE FROM membresias WHERE id = ?", (id_membresia,))
+
+    conexion.commit()
+    conexion.close()
+
+    print("Membresía eliminada correctamente")
