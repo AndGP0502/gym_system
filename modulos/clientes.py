@@ -1,6 +1,7 @@
 import sqlite3
 from tkinter import messagebox
 
+
 def agregar_cliente(nombre, telefono, fecha_registro):
 
     if not nombre.strip():
@@ -46,6 +47,7 @@ def ver_clientes():
 
     return clientes
 
+
 def eliminar_cliente(cliente_id):
     
     conexion = sqlite3.connect("gym.db")
@@ -55,6 +57,7 @@ def eliminar_cliente(cliente_id):
     
     conexion.commit()
     conexion.close()
+
 
 def editar_cliente(cliente_id, nombre, telefono, fecha):
 
@@ -72,3 +75,18 @@ def editar_cliente(cliente_id, nombre, telefono, fecha):
 
     conexion.commit()
     conexion.close()
+
+
+# -------- CONTAR CLIENTES PARA EL DASHBOARD --------
+def contar_clientes():
+
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM clientes")
+
+    total = cursor.fetchone()[0]
+
+    conexion.close()
+
+    return total
