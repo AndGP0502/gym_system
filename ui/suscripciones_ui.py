@@ -20,6 +20,13 @@ def abrir_ventana_suscripciones(parent):
     ventana.title("Suscripciones")
     ventana.geometry("900x500")
 
+    ventana.transient(parent)
+    ventana.grab_set()
+    ventana.lift()
+    ventana.attributes("-topmost", True)
+    ventana.after(200, lambda: ventana.attributes("-topmost", False))
+    ventana.focus_force()
+
     # -------- TABLA --------
 
     columnas = ("ID", "Cliente", "Plan", "Estado")
