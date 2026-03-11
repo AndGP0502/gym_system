@@ -10,6 +10,12 @@ def abrir_ventana_clientes(parent):
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Gestión de Clientes")
     ventana.geometry("700x500")
+    ventana.resizable(True, True)
+
+    ventana.lift()
+    ventana.attributes("-topmost", True)
+    ventana.after(200, lambda: ventana.attributes("-topmost", False))
+    ventana.focus_force()
 
     # -------- TITULO --------
 

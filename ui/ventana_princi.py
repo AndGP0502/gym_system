@@ -11,9 +11,9 @@ ctk.set_default_color_theme("blue")
 
 def iniciar_ventana():
 
-    ventana = ctk.CTk()
-    ventana.title("Sistema de Gimnasio")
-    ventana.geometry("700x500")
+    ventana = ctk.CTkToplevel()
+    ventana.title("Sistema de Gestión de Gimnasio")
+    ventana.state("zoomed")
 
     titulo = ctk.CTkLabel(
         ventana,
