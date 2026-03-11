@@ -195,6 +195,56 @@ def ver_dias_restantes():
 
     return resultados
 
+def crear_suscripcion(cliente_id, membresia_id):
+
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    # obtener datos de la membresía
+    cursor.execute("""
+        SELECT precio, duracion_dias
+        FROM membresias
+        WHERE id = ?
+    """, (membresia_id,))
+
+    datos = cursor.fetchone()
+
+    if not datos:
+        conexion.close()
+        return
+
+    precio, duracion = datos
+
+    fecha_inicio = datetime.now().date()
+    fecha_vencimiento = fecha_inicio + timedelta(days=duracion)
+
+    pagado = 0
+    pendiente = precio
+
+    cursor.execute("""
+        INSERT INTO suscripciones (
+            cliente_id,
+            membresia_id,
+            fecha_inicio,
+            fecha_vencimiento,
+            precio_total,
+            pagado,
+            pendiente
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (
+        cliente_id,
+        membresia_id,
+        fecha_inicio,
+        fecha_vencimiento,
+        precio,
+        pagado,
+        pendiente
+    ))
+
+    conexion.commit()
+    conexion.close()
+
 def clientes_por_vencer():
 
     conexion = sqlite3.connect("gym.db")

@@ -132,5 +132,5 @@ def buscar_cliente_pagos(cliente_id):
     datos = cursor.fetchall()
 
     conexion.close()
-
+    
     return datos
