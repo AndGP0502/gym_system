@@ -1,9 +1,6 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox
 
-from modulos.clientes import ver_clientes
-from modulos.membresias import ver_membresias
-
 from modulos.suscripciones import (
     asignar_membresia,
     ver_estado_gimnasio,
@@ -18,32 +15,59 @@ def abrir_ventana_suscripciones(parent):
 
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Suscripciones")
-    ventana.geometry("900x500")
-
-    ventana.transient(parent)
-    ventana.grab_set()
+    
+    # ventana maximizada
+    ventana.state("zoomed")
+    
+    # permitir controles del sistema
+    ventana.resizable(True, True)
+    
+    # traer al frente
     ventana.lift()
-    ventana.attributes("-topmost", True)
-    ventana.after(200, lambda: ventana.attributes("-topmost", False))
     ventana.focus_force()
 
-    # -------- TABLA --------
+# ---------- FRAME PRINCIPAL ----------
+
+    scroll = ctk.CTkScrollableFrame(ventana)
+    scroll.pack(fill="both", expand=True)
+
+# ---------- TABLA ----------
 
     columnas = ("ID", "Cliente", "Plan", "Estado")
 
-    tabla = ttk.Treeview(ventana, columns=columnas, show="headings")
+    frame_tabla = ctk.CTkFrame(scroll)
+    frame_tabla.pack(fill="both", expand=True)
+
+    tabla = ttk.Treeview(
+        frame_tabla,
+        columns=columnas,
+        show="headings"
+    )
 
     for col in columnas:
         tabla.heading(col, text=col)
+        tabla.column(col, anchor="center", width=200)
 
-    tabla.pack(pady=20, fill="both", expand=True)
+# ---------- SCROLLBARS ----------
 
-    # -------- FRAME BOTONES --------
+    scroll_y = ttk.Scrollbar(frame_tabla, orient="vertical", command=tabla.yview)
+    scroll_x = ttk.Scrollbar(frame_tabla, orient="horizontal", command=tabla.xview)
 
-    frame_botones = ctk.CTkFrame(ventana)
+    tabla.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
+
+    tabla.grid(row=0, column=0, sticky="nsew")
+    scroll_y.grid(row=0, column=1, sticky="ns")
+    scroll_x.grid(row=1, column=0, sticky="ew")
+
+    frame_tabla.grid_rowconfigure(0, weight=1)
+    frame_tabla.grid_columnconfigure(0, weight=1)
+
+# ---------- FRAME BOTONES ----------
+
+    frame_botones = ctk.CTkFrame(scroll)
     frame_botones.pack(pady=10)
 
-    # -------- FUNCIONES --------
+# ---------- FUNCIONES ----------
 
     def limpiar_tabla():
         for fila in tabla.get_children():
@@ -97,46 +121,43 @@ def abrir_ventana_suscripciones(parent):
             estado = f"{inicio} → {vence} | Pagado: {pagado} | Deuda: {deuda}"
             tabla.insert("", "end", values=(id_s, cliente, plan, estado))
 
-    # -------- BOTONES --------
+# ---------- BOTONES ----------
 
-    boton_estado = ctk.CTkButton(
+    ctk.CTkButton(
         frame_botones,
         text="Estado del gimnasio",
         command=estado_gimnasio
-    )
-    boton_estado.grid(row=0, column=0, padx=10, pady=5)
+    ).grid(row=0, column=0, padx=10, pady=5)
 
-    boton_vencidos = ctk.CTkButton(
+    ctk.CTkButton(
         frame_botones,
         text="Clientes vencidos",
         command=ver_vencidos
-    )
-    boton_vencidos.grid(row=0, column=1, padx=10)
+    ).grid(row=0, column=1, padx=10)
 
-    boton_por_vencer = ctk.CTkButton(
+    ctk.CTkButton(
         frame_botones,
         text="Clientes por vencer",
         command=ver_por_vencer
-    )
-    boton_por_vencer.grid(row=0, column=2, padx=10)
+    ).grid(row=0, column=2, padx=10)
 
-    boton_dias = ctk.CTkButton(
+    ctk.CTkButton(
         frame_botones,
         text="Días restantes",
         command=ver_dias
-    )
-    boton_dias.grid(row=1, column=0, padx=10, pady=5)
+    ).grid(row=1, column=0, padx=10, pady=5)
 
-    boton_completas = ctk.CTkButton(
+    ctk.CTkButton(
         frame_botones,
         text="Suscripciones completas",
         command=ver_completas
-    )
-    boton_completas.grid(row=1, column=1, padx=10)
+    ).grid(row=1, column=1, padx=10)
 
-    # -------- ASIGNAR MEMBRESIA --------
 
-    frame_asignar = ctk.CTkFrame(ventana)
+
+# ---------- ASIGNAR MEMBRESIA ----------
+
+    frame_asignar = ctk.CTkFrame(scroll)
     frame_asignar.pack(pady=15)
 
     ctk.CTkLabel(frame_asignar, text="ID Cliente").grid(row=0, column=0)
@@ -158,12 +179,10 @@ def abrir_ventana_suscripciones(parent):
     def asignar():
 
         try:
-
             cliente = int(entry_cliente.get())
             membresia = int(entry_membresia.get())
             precio = float(entry_precio.get())
             pagado = float(entry_pagado.get())
-
         except ValueError:
             messagebox.showerror("Error", "Datos inválidos")
             return
@@ -177,13 +196,8 @@ def abrir_ventana_suscripciones(parent):
         entry_precio.delete(0, ctk.END)
         entry_pagado.delete(0, ctk.END)
 
-    boton_asignar = ctk.CTkButton(
+    ctk.CTkButton(
         frame_asignar,
         text="Asignar membresía",
         command=asignar
-    )
-
-    boton_asignar.grid(row=4, column=0, columnspan=2, pady=10)
-
-    import sqlite3
-    from datetime import date
+    ).grid(row=4, column=0, columnspan=2, pady=10)
