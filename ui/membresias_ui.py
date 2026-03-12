@@ -22,8 +22,23 @@ def abrir_ventana_membresias(parent):
     ventana.after(200, lambda: ventana.attributes("-topmost", False))
     ventana.focus_force()
 
+    # ---------- SCROLL PRINCIPAL ----------
+    scroll = ctk.CTkScrollableFrame(ventana)
+    scroll.pack(fill="both", expand=True)
+
+    # ---------- BOTON REGRESAR INDEPENDIENTE ----------
+    boton_regresar = ctk.CTkButton(
+        ventana,
+        text="← Volver al menú",
+        width=170,
+        height=35,
+        font=("Segoe UI", 14),
+        command=ventana.destroy
+    )
+    boton_regresar.place(relx=0.97, y=30, anchor="ne")
+
     # ---------- CONTENEDOR FORMULARIO ----------
-    frame_contenedor = ctk.CTkFrame(ventana, fg_color="transparent")
+    frame_contenedor = ctk.CTkFrame(scroll, fg_color="transparent")
     frame_contenedor.pack(pady=20)
 
     # ---------- FORMULARIO ----------
@@ -72,19 +87,14 @@ def abrir_ventana_membresias(parent):
     )
     entry_dias.grid(row=2, column=1, padx=10, pady=10)
 
-    # ---------- BOTON REGRESAR INDEPENDIENTE ----------
-    boton_regresar = ctk.CTkButton(
-    ventana,
-    text="← Volver al menú",
-    width=170,
-    height=35,
-    font=("Segoe UI", 14),
-    command=ventana.destroy
-)
+    # ---------- CONTADOR ----------
+    label_total = ctk.CTkLabel(
+        scroll,
+        text="Total de membresías: 0",
+        font=("Segoe UI", 15, "bold")
+    )
+    label_total.pack(pady=(5, 10))
 
-    # mover solo el botón, sin afectar el formulario
-    boton_regresar.place(relx=0.97, y=30, anchor="ne")
-    
     # ---------- ESTILO DE TABLA ----------
     style = ttk.Style()
 
@@ -100,7 +110,7 @@ def abrir_ventana_membresias(parent):
     )
 
     # ---------- TABLA ----------
-    frame_tabla = ctk.CTkFrame(ventana)
+    frame_tabla = ctk.CTkFrame(scroll)
     frame_tabla.pack(fill="both", expand=True, padx=20, pady=20)
 
     tabla = ttk.Treeview(
@@ -122,15 +132,29 @@ def abrir_ventana_membresias(parent):
 
     tabla.pack(fill="both", expand=True)
 
-    # ---------- CARGAR TABLA ----------
-    def cargar_tabla():
+    # ---------- FUNCION PARA MOSTRAR TABLA ----------
+    def mostrar_en_tabla(membresias):
         for fila in tabla.get_children():
             tabla.delete(fila)
 
-        membresias = ver_membresias()
-
         for m in membresias:
-            tabla.insert("", "end", values=m)
+            tabla.insert(
+                "",
+                "end",
+                values=(
+                    m[0],
+                    m[1],
+                    f"{float(m[2]):.2f}",
+                    m[3]
+                )
+            )
+
+        label_total.configure(text=f"Total de membresías: {len(membresias)}")
+
+    # ---------- CARGAR TABLA ----------
+    def cargar_tabla():
+        membresias = ver_membresias()
+        mostrar_en_tabla(membresias)
 
     # ---------- SELECCIONAR FILA ----------
     def seleccionar(event):
@@ -157,6 +181,7 @@ def abrir_ventana_membresias(parent):
         entry_nombre.delete(0, "end")
         entry_precio.delete(0, "end")
         entry_dias.delete(0, "end")
+        tabla.selection_remove(tabla.selection())
 
     # ---------- CREAR MEMBRESIA ----------
     def guardar():
@@ -165,6 +190,22 @@ def abrir_ventana_membresias(parent):
             precio = float(entry_precio.get())
             dias = int(entry_dias.get())
 
+            if not nombre:
+                messagebox.showwarning("Aviso", "Ingresa el nombre del plan")
+                return
+            
+            if len(nombre) < 3:
+                messagebox.showwarning("Aviso", "El nombre del plan debe tener al menos 3 caracteres")
+                return
+            
+            if precio <= 0:
+                messagebox.showwarning("Aviso", "El precio debe ser mayor a 0")
+                return
+            
+            if dias <= 0:
+                messagebox.showwarning("Aviso", "La duracion debe ser mayor que 0")
+                return
+
             crear_membresia(nombre, precio, dias)
 
             cargar_tabla()
@@ -172,7 +213,7 @@ def abrir_ventana_membresias(parent):
 
             messagebox.showinfo("Éxito", "Membresía creada correctamente")
 
-        except:
+        except ValueError:
             messagebox.showerror("Error", "Datos inválidos")
 
     # ---------- EDITAR MEMBRESIA ----------
@@ -183,6 +224,14 @@ def abrir_ventana_membresias(parent):
             messagebox.showwarning("Aviso", "Selecciona una membresía")
             return
 
+        confirmar = messagebox.askyesno(
+            "Confirmar",
+            "¿Deseas actualizar esta membresía?"
+        )
+
+        if not confirmar:
+            return
+
         try:
             item = tabla.item(seleccion[0])
             id_membresia = item["values"][0]
@@ -191,6 +240,10 @@ def abrir_ventana_membresias(parent):
             precio = float(entry_precio.get())
             dias = int(entry_dias.get())
 
+            if not nombre:
+                messagebox.showwarning("Aviso", "Ingresa el nombre del plan")
+                return
+
             editar_membresia(id_membresia, nombre, precio, dias)
 
             cargar_tabla()
@@ -198,7 +251,7 @@ def abrir_ventana_membresias(parent):
 
             messagebox.showinfo("Éxito", "Membresía actualizada correctamente")
 
-        except:
+        except ValueError:
             messagebox.showerror("Error", "Datos inválidos")
 
     # ---------- ELIMINAR MEMBRESIA ----------
@@ -224,42 +277,54 @@ def abrir_ventana_membresias(parent):
             messagebox.showinfo("Éxito", "Membresía eliminada correctamente")
 
     # ---------- BOTONES ----------
-    frame_botones = ctk.CTkFrame(ventana)
+    frame_botones = ctk.CTkFrame(scroll)
     frame_botones.pack(pady=10)
 
     boton_crear = ctk.CTkButton(
         frame_botones,
         text="Crear Membresía",
-        width=200,
+        width=180,
         height=40,
         font=("Segoe UI", 16),
         command=guardar
     )
-    boton_crear.grid(row=0, column=0, padx=10)
+    boton_crear.grid(row=0, column=0, padx=10, pady=10)
 
     boton_editar = ctk.CTkButton(
         frame_botones,
         text="Editar",
-        width=200,
+        width=180,
         height=40,
         font=("Segoe UI", 16),
         fg_color="#f0ad4e",
         hover_color="#d9962f",
         command=editar
     )
-    boton_editar.grid(row=0, column=1, padx=10)
+    boton_editar.grid(row=0, column=1, padx=10, pady=10)
 
     boton_eliminar = ctk.CTkButton(
         frame_botones,
         text="Eliminar",
-        width=200,
+        width=180,
         height=40,
         font=("Segoe UI", 16),
         fg_color="red",
         hover_color="#b30000",
         command=eliminar
     )
-    boton_eliminar.grid(row=0, column=2, padx=10)
+    boton_eliminar.grid(row=0, column=2, padx=10, pady=10)
+
+    boton_limpiar = ctk.CTkButton(
+        frame_botones,
+        text="Limpiar",
+        width=180,
+        height=40,
+        font=("Segoe UI", 16),
+        fg_color="gray40",
+        hover_color="gray30",
+        command=limpiar_campos
+    )
+    boton_limpiar.grid(row=0, column=3, padx=10, pady=10)
 
     # ---------- CARGAR DATOS ----------
     cargar_tabla()
