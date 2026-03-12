@@ -12,13 +12,8 @@ def abrir_ventana_pagos(parent):
     ventana.title("Gestión de Pagos")
     ventana.state("zoomed")
 
-    ventana.transient(parent)
-    ventana.grab_set()
     ventana.lift()
-    ventana.attributes("-topmost", True)
-    ventana.after(200, lambda: ventana.attributes("-topmost", False))
-    ventana.focus_force()
-
+    ventana.after(10, lambda: ventana.focus())
     # -------- SCROLL PRINCIPAL --------
 
     scroll = ctk.CTkScrollableFrame(ventana)

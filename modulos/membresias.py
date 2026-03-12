@@ -118,3 +118,18 @@ def eliminar_membresia(id_membresia):
     conexion.close()
 
     print("Membresía eliminada correctamente")
+
+
+# -------- CONTAR MEMBRESIAS --------
+def contar_membresias():
+
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM membresias")
+
+    total = cursor.fetchone()[0]
+
+    conexion.close()
+
+    return total

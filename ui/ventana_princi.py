@@ -5,6 +5,7 @@ from ui.pagos_ui import abrir_ventana_pagos
 from ui.suscripciones_ui import abrir_ventana_suscripciones
 from ui.membresias_ui import abrir_ventana_membresias
 from modulos.clientes import contar_clientes
+from modulos.membresias import contar_membresias
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -18,8 +19,8 @@ def iniciar_ventana():
 
     # -------- FUNCION ACTUALIZAR DASHBOARD --------
     def actualizar_dashboard():
-        numero_clientes.configure(text=str(contar_clientes()))
-
+       numero_clientes.configure(text=str(contar_clientes()))
+       numero_membresias.configure(text=str(contar_membresias()))
     # -------- BARRA SUPERIOR --------
     frame_superior = ctk.CTkFrame(ventana, fg_color="transparent")
     frame_superior.pack(fill="x", padx=20, pady=20)
@@ -92,7 +93,7 @@ def iniciar_ventana():
 
     numero_membresias = ctk.CTkLabel(
         frame_membresias,
-        text="0",
+        text=str(contar_membresias()),
         font=("Arial", 24, "bold")
     )
     numero_membresias.pack()
