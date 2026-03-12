@@ -7,14 +7,17 @@ from modulos.suscripciones import ver_suscripciones_completas, crear_suscripcion
 
 
 def abrir_ventana_pagos(parent):
-
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Gestión de Pagos")
     ventana.state("zoomed")
     ventana.resizable(True, True)
+    ventana.transient(parent)  
 
     ventana.lift()
-    ventana.after(10, lambda: ventana.focus())
+    ventana.attributes("-topmost", True)
+    ventana.after(300, lambda: ventana.attributes("-topmost", False))
+    ventana.focus_force()
+    ventana.grab_set()
 
     scroll = ctk.CTkScrollableFrame(ventana)
     scroll.pack(fill="both", expand=True)

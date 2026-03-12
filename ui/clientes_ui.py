@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import ttk
 from tkinter import messagebox
+from datetime import datetime
 
 from modulos.clientes import agregar_cliente, ver_clientes, eliminar_cliente, editar_cliente
 
@@ -59,6 +60,10 @@ def abrir_ventana_clientes(parent):
     ctk.CTkLabel(frame_form, text="Fecha Registro", font=("Segoe UI", 15)).grid(row=3, column=0, padx=10, pady=8)
     entry_fecha = ctk.CTkEntry(frame_form, width=250, height=35)
     entry_fecha.grid(row=3, column=1, padx=10, pady=8)
+
+    # colocar fecha actual automática
+    fecha_actual = datetime.now().strftime("%d/%m/%Y")
+    entry_fecha.insert(0, fecha_actual)
 
     # -------- CONTADOR --------
     label_total = ctk.CTkLabel(

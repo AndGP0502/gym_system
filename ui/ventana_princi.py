@@ -13,10 +13,15 @@ ctk.set_default_color_theme("blue")
 
 
 def iniciar_ventana():
-
     ventana = ctk.CTk()
     ventana.title("Sistema de Gestión de Gimnasio")
-    ventana.after(0, lambda: ventana.state("zoomed"))  # pantalla completa
+
+    ancho = ventana.winfo_screenwidth()
+    alto = ventana.winfo_screenheight()
+    ventana.geometry(f"{ancho}x{alto}+0+0")
+
+    ventana.update_idletasks()
+    ventana.state("zoomed")
     ventana.resizable(True, True)
 
     # -------- FUNCION ACTUALIZAR DASHBOARD --------
@@ -186,8 +191,5 @@ def iniciar_ventana():
     boton_salir.pack(pady=40)
 
     ventana.mainloop()
-
-
-iniciar_ventana()
     
 
