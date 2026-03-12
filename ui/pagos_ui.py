@@ -14,12 +14,11 @@ def abrir_ventana_pagos(parent):
 
     ventana.lift()
     ventana.after(10, lambda: ventana.focus())
-    # -------- SCROLL PRINCIPAL --------
 
     scroll = ctk.CTkScrollableFrame(ventana)
     scroll.pack(fill="both", expand=True)
 
-    # -------- TABLA CLIENTES --------
+# ---------------- CLIENTES ----------------
 
     frame_clientes = ctk.CTkFrame(scroll)
     frame_clientes.pack(pady=10, fill="x")
@@ -37,11 +36,11 @@ def abrir_ventana_pagos(parent):
     tabla_clientes.heading("Nombre", text="Nombre")
 
     tabla_clientes.column("ID", width=80, anchor="center")
-    tabla_clientes.column("Nombre", width=250, anchor="w")
+    tabla_clientes.column("Nombre", width=250)
 
     tabla_clientes.pack(fill="x", padx=10, pady=5)
 
-    # -------- TABLA SUSCRIPCIONES --------
+# ---------------- SUSCRIPCIONES ----------------
 
     frame_sus = ctk.CTkFrame(scroll)
     frame_sus.pack(pady=10, fill="x")
@@ -65,7 +64,7 @@ def abrir_ventana_pagos(parent):
 
     tabla_sus.pack(fill="x", padx=10)
 
-    # -------- TABLA ESTADO PAGOS --------
+# ---------------- TABLA PAGOS ----------------
 
     frame_tabla = ctk.CTkFrame(scroll)
     frame_tabla.pack(pady=10, fill="both", expand=True)
@@ -94,13 +93,13 @@ def abrir_ventana_pagos(parent):
 
     tabla.configure(yscrollcommand=scroll_tabla.set)
 
-    # -------- COLORES --------
+# ---------------- COLORES ----------------
 
     tabla.tag_configure("pagado", background="#baf7b0")
     tabla.tag_configure("parcial", background="#fff3a6")
     tabla.tag_configure("deuda", background="#f5b7b1")
 
-    # -------- BUSCAR / CREAR SUSCRIPCION --------
+# ---------------- BUSCAR ----------------
 
     frame_buscar = ctk.CTkFrame(scroll)
     frame_buscar.pack(pady=10)
@@ -120,9 +119,7 @@ def abrir_ventana_pagos(parent):
     entry_id_membresia = ctk.CTkEntry(frame_buscar, width=120)
     entry_id_membresia.grid(row=2, column=1)
 
-
-
-    # -------- FORMULARIO PAGOS --------
+# ---------------- FORMULARIO PAGOS ----------------
 
     frame = ctk.CTkFrame(scroll)
     frame.pack(pady=10)
@@ -137,9 +134,10 @@ def abrir_ventana_pagos(parent):
     entry_monto = ctk.CTkEntry(frame, width=120)
     entry_monto.grid(row=1, column=1, padx=10)
 
-    # -------- FUNCIONES --------
+# ---------------- FUNCIONES ----------------
 
     def cargar_clientes():
+
         for fila in tabla_clientes.get_children():
             tabla_clientes.delete(fila)
 
@@ -149,7 +147,9 @@ def abrir_ventana_pagos(parent):
             id_cliente, nombre, telefono, fecha = cliente
             tabla_clientes.insert("", "end", values=(id_cliente, nombre))
 
+
     def cargar_suscripciones():
+
         for fila in tabla.get_children():
             tabla.delete(fila)
 
@@ -186,6 +186,7 @@ def abrir_ventana_pagos(parent):
 
             tabla.insert("", "end", values=fila, tags=(tag,))
 
+
     def buscar_cliente():
 
         cliente_id = entry_cliente.get()
@@ -202,11 +203,26 @@ def abrir_ventana_pagos(parent):
 
         datos = buscar_cliente_pagos(cliente_id)
 
+        if not datos:
+            messagebox.showinfo("Sin resultados", "El cliente no tiene suscripciones", parent=ventana)
+            return
+
         for fila in tabla.get_children():
             tabla.delete(fila)
 
-        for fila in datos:
-            tabla.insert("", "end", values=fila)
+        for sus in datos:
+
+            id_suscripcion, cliente, plan, total, pagado, pendiente, inicio, vence = sus
+
+            if pendiente == 0:
+                tag = "pagado"
+            elif pagado > 0:
+                tag = "parcial"
+            else:
+                tag = "deuda"
+
+            tabla.insert("", "end", values=sus, tags=(tag,))
+
 
     def seleccionar_fila(event):
 
@@ -220,6 +236,7 @@ def abrir_ventana_pagos(parent):
         entry_id.delete(0, ctk.END)
         entry_id.insert(0, valores[0])
 
+
     def seleccionar_cliente(event):
 
         item = tabla_clientes.selection()
@@ -232,6 +249,7 @@ def abrir_ventana_pagos(parent):
         entry_cliente.delete(0, ctk.END)
         entry_cliente.insert(0, valores[0])
 
+
     def seleccionar_suscripcion(event):
 
         item = tabla_sus.selection()
@@ -243,6 +261,9 @@ def abrir_ventana_pagos(parent):
 
         entry_id.delete(0, ctk.END)
         entry_id.insert(0, valores[0])
+
+
+# ---------------- PAGAR ----------------
 
     def pagar():
 
@@ -274,62 +295,50 @@ def abrir_ventana_pagos(parent):
         cargar_suscripciones()
         cargar_suscripciones_lista()
 
+
+# ---------------- HISTORIAL ----------------
+
     def ver_historial():
-        
+
         suscripcion = entry_id.get()
 
         if suscripcion == "":
-            messagebox.showerror(
-                "Error",
-                "Seleccione una suscripción primero",
-                parent=ventana
-                
-            )
+            messagebox.showerror("Error", "Seleccione una suscripción primero", parent=ventana)
             return
 
         try:
             suscripcion = int(suscripcion)
         except ValueError:
-            messagebox.showerror(
-                "Error",
-                "ID de suscripción inválido",
-                parent=ventana
-            )
+            messagebox.showerror("Error", "ID inválido", parent=ventana)
             return
 
         historial = ver_historial_pagos(suscripcion)
-        
+
         if not historial:
-            messagebox.showinfo(
-                "Historial",
-                "No hay pagos registrados",
-                parent=ventana
-            )
+            messagebox.showinfo("Historial", "No hay pagos registrados", parent=ventana)
             return
-        
-        # -------- VENTANA HISTORIAL --------
-         
+
         ventana_historial = ctk.CTkToplevel(ventana)
         ventana_historial.title("Historial de Pagos")
         ventana_historial.geometry("500x350")
-        
+
         tabla_historial = ttk.Treeview(
             ventana_historial,
-            columns=("ID", "Monto", "Fecha"),
+            columns=( "Monto", "Fecha"),
             show="headings"
         )
+
         
-        tabla_historial.heading("ID", text="ID")
         tabla_historial.heading("Monto", text="Monto")
         tabla_historial.heading("Fecha", text="Fecha")
-        
-        tabla_historial.column("Monto", width=120, anchor="center")
-        tabla_historial.column("Fecha", width=200, anchor="center")
-        
-        tabla_historial.pack(fill="both", expand=True, padx=10, pady=10)
-        
+
+        tabla_historial.pack(fill="both", expand=True)
+
         for pago_id, monto, fecha in historial:
-            tabla_historial.insert("", "end", values=(monto, fecha))
+            tabla_historial.insert("", "end", values=(pago_id, monto, fecha))
+
+
+# ---------------- SUSCRIPCIONES LISTA ----------------
 
     def cargar_suscripciones_lista():
 
@@ -342,42 +351,38 @@ def abrir_ventana_pagos(parent):
             id_s, cliente, plan, inicio, vence, pagado, deuda = sus
             tabla_sus.insert("", "end", values=(id_s, cliente, plan))
 
+
+# ---------------- ELIMINAR PAGO ----------------
+
     def eliminar_pago_seleccionado():
-        
+
         suscripcion = entry_id.get()
-        
+
         if suscripcion == "":
-            
             messagebox.showerror("Error", "Selecciona una suscripción", parent=ventana)
             return
-        
-        confirmar = messagebox.askyesno(
-            
-            "Confirmar",
-            "¿Seguro que deseas eliminar un pago?", 
-            parent=ventana
-            
-      )
-        
-        if not confirmar:
-            return
 
-        # obtener último pago
-         
         historial = ver_historial_pagos(int(suscripcion))
-        
+
         if not historial:
             messagebox.showinfo("Información", "No hay pagos para eliminar", parent=ventana)
             return
-        
+
+        confirmar = messagebox.askyesno("Confirmar", "¿Eliminar el último pago?", parent=ventana)
+
+        if not confirmar:
+            return
+
         pago_id = historial[-1][0]
-        
+
         eliminar_pago(pago_id)
-        
+
         messagebox.showinfo("Pago eliminado", "El pago fue eliminado", parent=ventana)
-        
+
         cargar_suscripciones()
 
+
+# ---------------- CREAR SUSCRIPCION ----------------
 
     def crear_suscripcion_rapida():
 
@@ -402,13 +407,15 @@ def abrir_ventana_pagos(parent):
         cargar_suscripciones()
         cargar_suscripciones_lista()
 
-    # -------- EVENTOS --------
+
+# ---------------- EVENTOS ----------------
 
     tabla.bind("<<TreeviewSelect>>", seleccionar_fila)
     tabla_clientes.bind("<<TreeviewSelect>>", seleccionar_cliente)
     tabla_sus.bind("<<TreeviewSelect>>", seleccionar_suscripcion)
 
-    # -------- BOTONES --------
+
+# ---------------- BOTONES ----------------
 
     frame_botones = ctk.CTkFrame(scroll)
     frame_botones.pack(pady=5)
@@ -417,20 +424,22 @@ def abrir_ventana_pagos(parent):
 
     ctk.CTkButton(frame_buscar, text="Crear Suscripción", command=crear_suscripcion_rapida).grid(row=3, column=0, columnspan=2, pady=5)
 
-    ctk.CTkButton(frame_botones, text="Registrar Pago", width=130, height=32, command=pagar).grid(row=0, column=0, padx=10)
-    ctk.CTkButton(frame_botones, text="Ver Historial", width=130, height=32, command=ver_historial).grid(row=0, column=1, padx=10)
-    ctk.CTkButton(frame_botones, text="Actualizar", width=130, height=32, command=lambda: [cargar_suscripciones(), cargar_suscripciones_lista()]).grid(row=0, column=2, padx=10)
-    ctk.CTkButton(frame_botones, text="← Volver", width=110, height=32, command=ventana.destroy).grid(row=0, column=3, padx=10)
-    
+    ctk.CTkButton(frame_botones, text="Registrar Pago", width=130, command=pagar).grid(row=0, column=0, padx=10)
+    ctk.CTkButton(frame_botones, text="Ver Historial", width=130, command=ver_historial).grid(row=0, column=1, padx=10)
+    ctk.CTkButton(frame_botones, text="Actualizar", width=130, command=lambda: [cargar_suscripciones(), cargar_suscripciones_lista()]).grid(row=0, column=2, padx=10)
+    ctk.CTkButton(frame_botones, text="← Volver", width=110, command=ventana.destroy).grid(row=0, column=3, padx=10)
+
     boton_eliminar = ctk.CTkButton(
         frame_botones,
         text="Eliminar Pago",
         fg_color="#d9534f",
         command=eliminar_pago_seleccionado
     )
-    
+
     boton_eliminar.grid(row=0, column=4, padx=10)
-    # -------- CARGA INICIAL --------
+
+
+# ---------------- CARGA INICIAL ----------------
 
     cargar_clientes()
     cargar_suscripciones()
