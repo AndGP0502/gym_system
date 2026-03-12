@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox
 
-from modulos.pagos import registrar_pago, ver_historial_pagos, listar_suscripciones_para_pago, buscar_cliente_pagos
+from modulos.pagos import registrar_pago, ver_historial_pagos, listar_suscripciones_para_pago, buscar_cliente_pagos, eliminar_pago
 from modulos.clientes import ver_clientes
 from modulos.suscripciones import ver_suscripciones_completas, crear_suscripcion
 
@@ -132,7 +132,7 @@ def abrir_ventana_pagos(parent):
     entry_id = ctk.CTkEntry(frame, width=120)
     entry_id.grid(row=0, column=1, padx=10)
 
-    ctk.CTkLabel(frame, text="Monto a pagar").grid(row=1, column=0, padx=10)
+    ctk.CTkLabel(frame, text="Monto pagado").grid(row=1, column=0, padx=10)
 
     entry_monto = ctk.CTkEntry(frame, width=120)
     entry_monto.grid(row=1, column=1, padx=10)
@@ -191,13 +191,13 @@ def abrir_ventana_pagos(parent):
         cliente_id = entry_cliente.get()
 
         if cliente_id == "":
-            messagebox.showerror("Error", "Ingrese un ID de cliente")
+            messagebox.showerror("Error", "Ingrese un ID de cliente", parent=ventana)
             return
 
         try:
             cliente_id = int(cliente_id)
         except ValueError:
-            messagebox.showerror("Error", "ID inválido")
+            messagebox.showerror("Error", "ID inválido", parent=ventana)
             return
 
         datos = buscar_cliente_pagos(cliente_id)
@@ -250,23 +250,23 @@ def abrir_ventana_pagos(parent):
         monto = entry_monto.get()
 
         if suscripcion == "" or monto == "":
-            messagebox.showerror("Error", "Debes seleccionar una suscripción y escribir el monto")
+            messagebox.showerror("Error", "Debes seleccionar una suscripción y escribir el monto", parent=ventana)
             return
 
         try:
             suscripcion = int(suscripcion)
             monto = float(monto)
         except ValueError:
-            messagebox.showerror("Error", "Datos inválidos")
+            messagebox.showerror("Error", "Datos inválidos", parent=ventana)
             return
 
         if monto <= 0:
-            messagebox.showerror("Error", "El monto debe ser mayor a 0")
+            messagebox.showerror("Error", "El monto debe ser mayor a 0", parent=ventana)
             return
 
         registrar_pago(suscripcion, monto)
 
-        messagebox.showinfo("Pago registrado", "El pago fue registrado correctamente")
+        messagebox.showinfo("Pago registrado", "El pago fue registrado correctamente", parent=ventana)
 
         entry_id.delete(0, ctk.END)
         entry_monto.delete(0, ctk.END)
@@ -275,20 +275,61 @@ def abrir_ventana_pagos(parent):
         cargar_suscripciones_lista()
 
     def ver_historial():
-
+        
         suscripcion = entry_id.get()
 
         if suscripcion == "":
-            messagebox.showerror("Error", "Seleccione una suscripción primero")
+            messagebox.showerror(
+                "Error",
+                "Seleccione una suscripción primero",
+                parent=ventana
+                
+            )
             return
 
-        historial = ver_historial_pagos(int(suscripcion))
+        try:
+            suscripcion = int(suscripcion)
+        except ValueError:
+            messagebox.showerror(
+                "Error",
+                "ID de suscripción inválido",
+                parent=ventana
+            )
+            return
 
-        texto = ""
-        for monto, fecha in historial:
-            texto += f"{fecha} | ${monto}\n"
-
-        messagebox.showinfo("Historial de pagos", texto)
+        historial = ver_historial_pagos(suscripcion)
+        
+        if not historial:
+            messagebox.showinfo(
+                "Historial",
+                "No hay pagos registrados",
+                parent=ventana
+            )
+            return
+        
+        # -------- VENTANA HISTORIAL --------
+         
+        ventana_historial = ctk.CTkToplevel(ventana)
+        ventana_historial.title("Historial de Pagos")
+        ventana_historial.geometry("500x350")
+        
+        tabla_historial = ttk.Treeview(
+            ventana_historial,
+            columns=("ID", "Monto", "Fecha"),
+            show="headings"
+        )
+        
+        tabla_historial.heading("ID", text="ID")
+        tabla_historial.heading("Monto", text="Monto")
+        tabla_historial.heading("Fecha", text="Fecha")
+        
+        tabla_historial.column("Monto", width=120, anchor="center")
+        tabla_historial.column("Fecha", width=200, anchor="center")
+        
+        tabla_historial.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        for pago_id, monto, fecha in historial:
+            tabla_historial.insert("", "end", values=(monto, fecha))
 
     def cargar_suscripciones_lista():
 
@@ -301,25 +342,62 @@ def abrir_ventana_pagos(parent):
             id_s, cliente, plan, inicio, vence, pagado, deuda = sus
             tabla_sus.insert("", "end", values=(id_s, cliente, plan))
 
+    def eliminar_pago_seleccionado():
+        
+        suscripcion = entry_id.get()
+        
+        if suscripcion == "":
+            
+            messagebox.showerror("Error", "Selecciona una suscripción", parent=ventana)
+            return
+        
+        confirmar = messagebox.askyesno(
+            
+            "Confirmar",
+            "¿Seguro que deseas eliminar un pago?", 
+            parent=ventana
+            
+      )
+        
+        if not confirmar:
+            return
+
+        # obtener último pago
+         
+        historial = ver_historial_pagos(int(suscripcion))
+        
+        if not historial:
+            messagebox.showinfo("Información", "No hay pagos para eliminar", parent=ventana)
+            return
+        
+        pago_id = historial[-1][0]
+        
+        eliminar_pago(pago_id)
+        
+        messagebox.showinfo("Pago eliminado", "El pago fue eliminado", parent=ventana)
+        
+        cargar_suscripciones()
+
+
     def crear_suscripcion_rapida():
 
         cliente = entry_id_cliente.get()
         membresia = entry_id_membresia.get()
 
         if cliente == "" or membresia == "":
-            messagebox.showerror("Error", "Debes ingresar cliente y membresía")
+            messagebox.showerror("Error", "Debes ingresar cliente y membresía", parent=ventana)
             return
 
         try:
             cliente = int(cliente)
             membresia = int(membresia)
         except:
-            messagebox.showerror("Error", "IDs inválidos")
+            messagebox.showerror("Error", "IDs inválidos", parent=ventana)
             return
 
         crear_suscripcion(cliente, membresia)
 
-        messagebox.showinfo("Éxito", "Suscripción creada")
+        messagebox.showinfo("Éxito", "Suscripción creada", parent=ventana)
 
         cargar_suscripciones()
         cargar_suscripciones_lista()
@@ -343,6 +421,15 @@ def abrir_ventana_pagos(parent):
     ctk.CTkButton(frame_botones, text="Ver Historial", width=130, height=32, command=ver_historial).grid(row=0, column=1, padx=10)
     ctk.CTkButton(frame_botones, text="Actualizar", width=130, height=32, command=lambda: [cargar_suscripciones(), cargar_suscripciones_lista()]).grid(row=0, column=2, padx=10)
     ctk.CTkButton(frame_botones, text="← Volver", width=110, height=32, command=ventana.destroy).grid(row=0, column=3, padx=10)
+    
+    boton_eliminar = ctk.CTkButton(
+        frame_botones,
+        text="Eliminar Pago",
+        fg_color="#d9534f",
+        command=eliminar_pago_seleccionado
+    )
+    
+    boton_eliminar.grid(row=0, column=4, padx=10)
     # -------- CARGA INICIAL --------
 
     cargar_clientes()

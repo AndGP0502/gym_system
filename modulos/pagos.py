@@ -62,21 +62,24 @@ def registrar_pago(suscripcion_id, monto):
 
 def ver_historial_pagos(suscripcion_id):
 
+    import sqlite3
+
     conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
     cursor.execute("""
-    SELECT id, monto, fecha_pago
-    FROM pagos
-    WHERE suscripcion_id = ?
-    ORDER BY fecha_pago
+        SELECT id, monto, fecha_pago
+        FROM pagos
+        WHERE suscripcion_id = ?
+        ORDER BY fecha_pago
     """, (suscripcion_id,))
 
-    pagos = cursor.fetchall()
+    datos = cursor.fetchall()
+
 
     conexion.close()
 
-    return pagos
+    return datos
 
 def listar_suscripciones_para_pago():
 
@@ -105,6 +108,50 @@ def listar_suscripciones_para_pago():
     conexion.close()
 
     return datos
+
+def eliminar_pago(pago_id):
+
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    # obtener datos del pago
+    cursor.execute(
+        "SELECT suscripcion_id, monto FROM pagos WHERE id = ?",
+        (pago_id,)
+    )
+
+    pago = cursor.fetchone()
+
+    if not pago:
+        conexion.close()
+        return False
+
+    suscripcion_id, monto = pago
+
+    # eliminar pago
+    cursor.execute(
+        "DELETE FROM pagos WHERE id = ?",
+        (pago_id,)
+    )
+
+    # actualizar suscripción
+    cursor.execute("""
+        UPDATE suscripciones
+        SET pagado = pagado - ?
+        WHERE id = ?
+    """, (monto, suscripcion_id))
+
+    cursor.execute("""
+        UPDATE suscripciones
+        SET pendiente = precio_total - pagado
+        WHERE id = ?
+    """, (suscripcion_id,))
+
+    conexion.commit()
+    conexion.close()
+
+    return True
+
 
 def buscar_cliente_pagos(cliente_id):
 
