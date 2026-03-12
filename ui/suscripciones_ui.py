@@ -184,3 +184,6 @@ def abrir_ventana_suscripciones(parent):
     )
 
     boton_asignar.grid(row=4, column=0, columnspan=2, pady=10)
+
+    import sqlite3
+    from datetime import date

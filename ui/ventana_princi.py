@@ -6,6 +6,7 @@ from ui.suscripciones_ui import abrir_ventana_suscripciones
 from ui.membresias_ui import abrir_ventana_membresias
 from modulos.clientes import contar_clientes
 from modulos.membresias import contar_membresias
+from modulos.suscripciones import contar_suscripciones_vencidas
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -21,6 +22,7 @@ def iniciar_ventana():
     def actualizar_dashboard():
        numero_clientes.configure(text=str(contar_clientes()))
        numero_membresias.configure(text=str(contar_membresias()))
+       numero_vencidas.configure(text=str(contar_suscripciones_vencidas()))
     # -------- BARRA SUPERIOR --------
     frame_superior = ctk.CTkFrame(ventana, fg_color="transparent")
     frame_superior.pack(fill="x", padx=20, pady=20)
@@ -129,7 +131,7 @@ def iniciar_ventana():
 
     numero_vencidas = ctk.CTkLabel(
         frame_vencidas,
-        text="0",
+        text=str(contar_suscripciones_vencidas()),
         font=("Arial", 24, "bold")
     )
     numero_vencidas.pack()

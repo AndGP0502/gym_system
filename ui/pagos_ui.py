@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 
 from modulos.pagos import registrar_pago, ver_historial_pagos, listar_suscripciones_para_pago, buscar_cliente_pagos
 from modulos.clientes import ver_clientes
-from modulos.suscripciones import ver_suscripciones_completas, crear_suscripcion
+from modulos.suscripciones import ver_suscripciones_completas, crear_suscripcion 
 
 
 def abrir_ventana_pagos(parent):
