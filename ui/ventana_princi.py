@@ -17,6 +17,7 @@ def iniciar_ventana():
     ventana = ctk.CTk()
     ventana.title("Sistema de Gestión de Gimnasio")
     ventana.after(0, lambda: ventana.state("zoomed"))  # pantalla completa
+    ventana.resizable(True, True)
 
     # -------- FUNCION ACTUALIZAR DASHBOARD --------
     def actualizar_dashboard():

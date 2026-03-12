@@ -11,6 +11,7 @@ def abrir_ventana_pagos(parent):
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Gestión de Pagos")
     ventana.state("zoomed")
+    ventana.resizable(True, True)
 
     ventana.lift()
     ventana.after(10, lambda: ventana.focus())
