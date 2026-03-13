@@ -1,6 +1,12 @@
 import sqlite3
+import os
 
-conexion = sqlite3.connect("gym.db")
+# ruta segura absoluta
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "..", "gym.db")
+
+# conectar solo una vez
+conexion = sqlite3.connect(DB_PATH)
 
 # activar claves foraneas
 conexion.execute("PRAGMA foreign_keys = ON")
