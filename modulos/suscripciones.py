@@ -339,3 +339,39 @@ def crear_suscripcion(cliente_id, membresia_id):
 
     print("Suscripción creada correctamente")
 
+# -------- ELIMINAR SUSCRIPCION --------
+
+def eliminar_suscripcion(suscripcion_id):
+
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    cursor.execute(
+        "DELETE FROM suscripciones WHERE id = ?",
+        (suscripcion_id,)
+    )
+
+    conexion.commit()
+    conexion.close()
+
+
+# -------- CONTAR CLIENTES ACTIVOS --------
+
+def contar_clientes_activos():
+
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    hoy = datetime.now().strftime("%Y-%m-%d")
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM suscripciones
+        WHERE fecha_vencimiento >= ?
+    """, (hoy,))
+
+    total = cursor.fetchone()[0]
+
+    conexion.close()
+
+    return total

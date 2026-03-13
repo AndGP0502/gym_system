@@ -7,7 +7,8 @@ from modulos.suscripciones import (
     ver_clientes_vencidos,
     ver_dias_restantes,
     clientes_por_vencer,
-    ver_suscripciones_completas
+    ver_suscripciones_completas,
+    eliminar_suscripcion
 )
 
 
@@ -95,6 +96,37 @@ def abrir_ventana_suscripciones(parent):
     def limpiar_tabla():
         for fila in tabla.get_children():
             tabla.delete(fila)
+    
+    def eliminar():
+        
+        seleccion = tabla.selection()
+        
+        if not seleccion:
+            messagebox.showwarning("Aviso", "Selecciona una suscripción")
+            return
+
+        item = tabla.item(seleccion[0])
+        datos = item["values"]
+        
+        if not datos or not datos[0]:
+            messagebox.showwarning("Aviso", "Esta fila no tiene ID de suscripción")
+            return
+        
+        suscripcion_id = datos[0]
+
+        confirmar = messagebox.askyesno(
+            "Confirmar",
+            "¿Eliminar esta suscripción?"
+        )
+
+        if confirmar:
+            
+            eliminar_suscripcion(suscripcion_id)
+
+            # eliminar solo la fila de la tabla
+            tabla.delete(seleccion[0])
+
+        messagebox.showinfo("Eliminado", "Suscripción eliminada correctamente")
 
     def estado_gimnasio():
         limpiar_tabla()
@@ -244,6 +276,14 @@ def abrir_ventana_suscripciones(parent):
         text="Suscripciones completas",
         command=ver_completas
     ).grid(row=1, column=1, padx=10)
+
+    ctk.CTkButton(
+        frame_botones,
+        text="Eliminar suscripción",
+        fg_color="#e74c3c",
+        hover_color="#c0392b",
+        command=eliminar
+    ).grid(row=1, column=2, padx=10)
 
     # ---------- ASIGNAR MEMBRESIA ----------
     frame_asignar = ctk.CTkFrame(scroll)
