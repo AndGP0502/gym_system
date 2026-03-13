@@ -1,5 +1,11 @@
 import sqlite3
 from datetime import datetime, timedelta
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "..", "gym.db")
+
+conexion = sqlite3.connect(DB_PATH)
 
 
 # -------- ASIGNAR MEMBRESIA A CLIENTE --------

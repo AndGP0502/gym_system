@@ -7,6 +7,8 @@ from ui.membresias_ui import abrir_ventana_membresias
 from modulos.clientes import contar_clientes
 from modulos.membresias import contar_membresias
 from modulos.suscripciones import contar_suscripciones_vencidas
+from modulos.backup_db import crear_backup, restaurar_backup
+from tkinter import messagebox
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -29,6 +31,47 @@ def iniciar_ventana():
        numero_clientes.configure(text=str(contar_clientes()))
        numero_membresias.configure(text=str(contar_membresias()))
        numero_vencidas.configure(text=str(contar_suscripciones_vencidas()))
+
+    #-------- FUNCIÓN DE BACKUP--------
+    def hacer_backup():
+
+        try:
+            
+            ruta = crear_backup()
+            
+            messagebox.showinfo(
+                "Backup creado",
+                f"Se guardó una copia en:\n{ruta}"
+            )
+        except Exception as e:
+            
+            messagebox.showerror(
+                "Error",
+                f"No se pudo crear el backup:\n{e}"
+            )
+
+    #----- RESTAURACIÓN DE BACKUP-----
+    def hacer_restauracion():
+        
+        try:
+            
+            archivo = restaurar_backup()
+            
+            if archivo:
+                
+                messagebox.showinfo(
+                    "Backup restaurado",
+                    "La base de datos fue restaurada correctamente.\n\nReinicia el sistema."
+                )
+
+                ventana.destroy()
+                
+        except Exception as e:
+            
+            messagebox.showerror(
+                "Error",
+                f"No se pudo restaurar el backup:\n{e}"
+            )
     # -------- BARRA SUPERIOR --------
     frame_superior = ctk.CTkFrame(ventana, fg_color="transparent")
     frame_superior.pack(fill="x", padx=20, pady=20)
@@ -45,16 +88,6 @@ def iniciar_ventana():
     font=("Arial", 26)
 )
     titulo.place(relx=0.5, rely=0.5, anchor="center")
-
-    # boton actualizar a la derecha
-    boton_actualizar = ctk.CTkButton(
-    frame_superior,
-    text="Actualizar",
-    width=120,
-    height=35,
-    command=actualizar_dashboard
-)
-    boton_actualizar.grid(row=0, column=2, sticky="e", padx=20)
 
     # boton actualizar a la derecha
     boton_actualizar = ctk.CTkButton(
@@ -179,6 +212,25 @@ def iniciar_ventana():
         command=lambda: abrir_ventana_pagos(ventana)
     )
     boton_pagos.pack(pady=10)
+    
+    #---BOTON DE BACKUP---
+    ctk.CTkButton(
+        ventana,
+        text="Crear Backup",
+        width=200,
+        height=40,
+        command=hacer_backup
+    ).pack(pady=10)
+
+    #----BOTÓN DE RECUPERAR BACKUP---
+
+    ctk.CTkButton(
+        ventana,
+        text="Restaurar Backup",
+        width=200,
+        height=40,
+        command=hacer_restauracion
+    ).pack(pady=10)
 
     # -------- SALIR --------
     boton_salir = ctk.CTkButton(

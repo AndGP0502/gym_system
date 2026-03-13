@@ -1,11 +1,9 @@
 import sqlite3
 import os
 
-# ruta segura absoluta
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "..", "gym.db")
 
-# conectar solo una vez
 conexion = sqlite3.connect(DB_PATH)
 
 # activar claves foraneas
@@ -50,7 +48,7 @@ FOREIGN KEY(membresia_id) REFERENCES membresias(id)
 )
 """)
 
-# tabla de cada pago que se hace
+# tabla pagos
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS pagos(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,8 +60,7 @@ FOREIGN KEY(suscripcion_id) REFERENCES suscripciones(id)
 """)
 
 conexion.commit()
-
-print("Base de datos y tablas creadas correctamente")
-
 conexion.close()
+
+print("Base de datos lista")
 

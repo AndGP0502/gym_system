@@ -10,13 +10,22 @@ def abrir_ventana_clientes(parent):
 
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Gestión de Clientes")
+
     ventana.geometry("950x650")
     ventana.resizable(True, True)
 
+    # asegurar que la ventana esté creada
+    ventana.update_idletasks()
+
+    # traer al frente
     ventana.lift()
-    ventana.attributes("-topmost", True)
-    ventana.after(200, lambda: ventana.attributes("-topmost", False))
     ventana.focus_force()
+    ventana.attributes("-topmost", True)
+
+    # quitar topmost después para comportamiento normal
+    ventana.after(200, lambda: ventana.attributes("-topmost", False))
+
+    ventana.grab_set()
 
     # -------- SCROLL PRINCIPAL --------
     scroll = ctk.CTkScrollableFrame(ventana)

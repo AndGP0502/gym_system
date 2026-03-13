@@ -1,4 +1,5 @@
 import sqlite3
+import os
 
 conexion = sqlite3.connect("gym.db")
 
