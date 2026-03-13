@@ -5,15 +5,13 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "..", "gym.db")
 
-
-def obtener_conexion():
-    return sqlite3.connect(DB_PATH)
+conexion = sqlite3.connect(DB_PATH)
 
 
 # -------- ASIGNAR MEMBRESIA A CLIENTE --------
 def asignar_membresia(cliente_id, membresia_id, precio_total, pagado):
 
-    conexion = obtener_conexion()
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
     # verificar cliente
@@ -47,14 +45,14 @@ def asignar_membresia(cliente_id, membresia_id, precio_total, pagado):
     pendiente = max(0, precio_total - pagado)
 
     cursor.execute("""
-        INSERT INTO suscripciones (
-            cliente_id,
-            membresia_id,
-            fecha_inicio,
-            fecha_vencimiento,
-            precio_total,
-            pagado,
-            pendiente
+        INSERT INTO suscripciones(
+        cliente_id,
+        membresia_id,
+        fecha_inicio,
+        fecha_vencimiento,
+        precio_total,
+        pagado,
+        pendiente
         )
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (cliente_id, membresia_id, fecha_inicio, fecha_vencimiento, precio_total, pagado, pendiente))
@@ -68,20 +66,22 @@ def asignar_membresia(cliente_id, membresia_id, precio_total, pagado):
 # -------- VER SUSCRIPCIONES --------
 def ver_suscripciones():
 
-    conexion = obtener_conexion()
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
     cursor.execute("SELECT * FROM suscripciones")
+
     datos = cursor.fetchall()
 
     conexion.close()
+
     return datos
 
 
 # -------- ESTADO GENERAL DEL GIMNASIO --------
 def ver_estado_gimnasio():
 
-    conexion = obtener_conexion()
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
     cursor.execute("""
@@ -99,13 +99,14 @@ def ver_estado_gimnasio():
     datos = cursor.fetchall()
 
     conexion.close()
+
     return datos
 
 
 # -------- CLIENTES VENCIDOS --------
 def ver_clientes_vencidos():
 
-    conexion = obtener_conexion()
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
     hoy = datetime.now().strftime("%Y-%m-%d")
@@ -120,18 +121,18 @@ def ver_clientes_vencidos():
     datos = cursor.fetchall()
 
     conexion.close()
+
     return datos
 
 
 # -------- REGISTRAR PAGO --------
 def registrar_pago(suscripcion_id, monto):
 
-    conexion = obtener_conexion()
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
     cursor.execute("""
-        SELECT precio_total, pagado
-        FROM suscripciones
+        SELECT precio_total, pagado FROM suscripciones
         WHERE id = ?
     """, (suscripcion_id,))
 
@@ -171,7 +172,7 @@ def registrar_pago(suscripcion_id, monto):
 # -------- DIAS RESTANTES --------
 def ver_dias_restantes():
 
-    conexion = obtener_conexion()
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
     cursor.execute("""
@@ -184,12 +185,15 @@ def ver_dias_restantes():
     """)
 
     datos = cursor.fetchall()
+
     hoy = datetime.now()
 
     resultados = []
 
     for nombre, plan, fecha_vencimiento in datos:
+
         fecha_v = datetime.strptime(fecha_vencimiento, "%Y-%m-%d")
+
         dias_restantes = (fecha_v - hoy).days
 
         if dias_restantes < 0:
@@ -200,44 +204,45 @@ def ver_dias_restantes():
         resultados.append((nombre, plan, estado))
 
     conexion.close()
+
     return resultados
 
 
 # -------- CLIENTES POR VENCER --------
 def clientes_por_vencer():
 
-    conexion = obtener_conexion()
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
     hoy = datetime.now()
 
     cursor.execute("""
-        SELECT clientes.nombre,
-               membresias.nombre_plan,
-               suscripciones.fecha_vencimiento
+        SELECT clientes.nombre, suscripciones.fecha_vencimiento
         FROM suscripciones
         JOIN clientes ON suscripciones.cliente_id = clientes.id
-        JOIN membresias ON suscripciones.membresia_id = membresias.id
     """)
 
     datos = cursor.fetchall()
+
     resultados = []
 
-    for nombre, plan, fecha_vencimiento in datos:
+    for nombre, fecha_vencimiento in datos:
+
         fecha_v = datetime.strptime(fecha_vencimiento, "%Y-%m-%d")
         dias_restantes = (fecha_v - hoy).days
 
         if 0 <= dias_restantes <= 5:
-            resultados.append((nombre, plan, dias_restantes))
+            resultados.append((nombre, dias_restantes))
 
     conexion.close()
+
     return resultados
 
 
 # -------- VER SUSCRIPCIONES COMPLETAS --------
 def ver_suscripciones_completas():
 
-    conexion = obtener_conexion()
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
     cursor.execute("""
@@ -256,13 +261,14 @@ def ver_suscripciones_completas():
     datos = cursor.fetchall()
 
     conexion.close()
+
     return datos
 
 
 # -------- CONTAR SUSCRIPCIONES VENCIDAS --------
 def contar_suscripciones_vencidas():
 
-    conexion = obtener_conexion()
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
     hoy = datetime.now().strftime("%Y-%m-%d")
@@ -276,15 +282,16 @@ def contar_suscripciones_vencidas():
     total = cursor.fetchone()[0]
 
     conexion.close()
-    return total
 
+    return total
 
 # -------- CREAR SUSCRIPCION --------
 def crear_suscripcion(cliente_id, membresia_id):
 
-    conexion = obtener_conexion()
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
+    # obtener datos de la membresía
     cursor.execute("""
         SELECT precio, duracion_dias
         FROM membresias
@@ -332,21 +339,39 @@ def crear_suscripcion(cliente_id, membresia_id):
 
     print("Suscripción creada correctamente")
 
-# -------- INGRESOS POR MES PARA EL GRAFICO --------
-def ingresos_por_mes():
+# -------- ELIMINAR SUSCRIPCION --------
 
-    conexion = obtener_conexion()
+def eliminar_suscripcion(suscripcion_id):
+
+    conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
 
-    cursor.execute("""
-        SELECT strftime('%m', fecha_inicio) AS mes,
-               SUM(pagado) AS total_ingresos
-        FROM suscripciones
-        GROUP BY strftime('%m', fecha_inicio)
-        ORDER BY strftime('%m', fecha_inicio)
-    """)
+    cursor.execute(
+        "DELETE FROM suscripciones WHERE id = ?",
+        (suscripcion_id,)
+    )
 
-    datos = cursor.fetchall()
+    conexion.commit()
+    conexion.close()
+
+
+# -------- CONTAR CLIENTES ACTIVOS --------
+
+def contar_clientes_activos():
+
+    conexion = sqlite3.connect("gym.db")
+    cursor = conexion.cursor()
+
+    hoy = datetime.now().strftime("%Y-%m-%d")
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM suscripciones
+        WHERE fecha_vencimiento >= ?
+    """, (hoy,))
+
+    total = cursor.fetchone()[0]
 
     conexion.close()
-    return datos
+
+    return total
