@@ -22,6 +22,19 @@ def abrir_ventana_pagos(parent):
     scroll = ctk.CTkScrollableFrame(ventana)
     scroll.pack(fill="both", expand=True)
 
+    style = ttk.Style()
+
+    style.configure(
+        "Treeview",
+        font=("Segoe UI", 14),   # tamaño del texto de las filas
+        rowheight=32
+    )
+
+    style.configure(
+        "Treeview.Heading",
+        font=("Segoe UI", 12, "bold")   # tamaño de los títulos
+    )
+
 # ---------------- CLIENTES ----------------
 
     frame_clientes = ctk.CTkFrame(scroll)
@@ -33,7 +46,7 @@ def abrir_ventana_pagos(parent):
         frame_clientes,
         columns=("ID", "Nombre"),
         show="headings",
-        height=4
+        height=3
     )
 
     tabla_clientes.heading("ID", text="ID")
@@ -55,7 +68,7 @@ def abrir_ventana_pagos(parent):
         frame_sus,
         columns=("ID", "Cliente", "Plan"),
         show="headings",
-        height=4
+        height=3
     )
 
     tabla_sus.heading("ID", text="ID Suscripción")
@@ -84,7 +97,7 @@ def abrir_ventana_pagos(parent):
         "Vence"
     )
 
-    tabla = ttk.Treeview(frame_tabla, columns=columnas, show="headings", height=6)
+    tabla = ttk.Treeview(frame_tabla, columns=columnas, show="headings", height=5)
 
     for col in columnas:
         tabla.heading(col, text=col)
@@ -106,7 +119,7 @@ def abrir_ventana_pagos(parent):
 # ---------------- BUSCAR ----------------
 
     frame_buscar = ctk.CTkFrame(scroll)
-    frame_buscar.pack(pady=10)
+    frame_buscar.pack(pady=8)
 
     ctk.CTkLabel(frame_buscar, text="Buscar por ID Cliente").grid(row=0, column=0, padx=10)
 
@@ -126,7 +139,7 @@ def abrir_ventana_pagos(parent):
 # ---------------- FORMULARIO PAGOS ----------------
 
     frame = ctk.CTkFrame(scroll)
-    frame.pack(pady=10)
+    frame.pack(pady=8)
 
     ctk.CTkLabel(frame, text="ID Suscripción").grid(row=0, column=0, padx=10)
 
@@ -422,27 +435,58 @@ def abrir_ventana_pagos(parent):
 # ---------------- BOTONES ----------------
 
     frame_botones = ctk.CTkFrame(scroll)
-    frame_botones.pack(pady=5)
+    frame_botones.pack(pady=8)
 
-    ctk.CTkButton(frame_buscar, text="Buscar", command=buscar_cliente).grid(row=0, column=2, padx=10)
+    ctk.CTkButton(
+       frame_botones,
+       text="Buscar",
+       width=120,
+       command=buscar_cliente
+    ).grid(row=0, column=0, padx=8)
 
-    ctk.CTkButton(frame_buscar, text="Crear Suscripción", command=crear_suscripcion_rapida).grid(row=3, column=0, columnspan=2, pady=5)
+    ctk.CTkButton(
+       frame_botones,
+       text="Crear Suscripción",
+       width=150,
+       command=crear_suscripcion_rapida
+    ).grid(row=0, column=1, padx=8)
 
-    ctk.CTkButton(frame_botones, text="Registrar Pago", width=130, command=pagar).grid(row=0, column=0, padx=10)
-    ctk.CTkButton(frame_botones, text="Ver Historial", width=130, command=ver_historial).grid(row=0, column=1, padx=10)
-    ctk.CTkButton(frame_botones, text="Actualizar", width=130, command=lambda: [cargar_suscripciones(), cargar_suscripciones_lista()]).grid(row=0, column=2, padx=10)
-    ctk.CTkButton(frame_botones, text="← Volver", width=110, command=ventana.destroy).grid(row=0, column=3, padx=10)
+    ctk.CTkButton(
+       frame_botones,
+       text="Registrar Pago",
+       width=130,
+       command=pagar
+    ).grid(row=0, column=2, padx=8)
 
-    boton_eliminar = ctk.CTkButton(
-        frame_botones,
-        text="Eliminar Pago",
-        fg_color="#d9534f",
-        command=eliminar_pago_seleccionado
-    )
+    ctk.CTkButton(
+       frame_botones,
+       text="Ver Historial",
+       width=130,
+       command=ver_historial
+    ).grid(row=0, column=3, padx=8)
 
-    boton_eliminar.grid(row=0, column=4, padx=10)
+    ctk.CTkButton(
+       frame_botones,
+       text="Actualizar",
+       width=130,
+       command=lambda: [cargar_suscripciones(), cargar_suscripciones_lista()]
+    ).grid(row=0, column=4, padx=8)
 
+    ctk.CTkButton(
+       frame_botones,
+       text="← Volver",
+       width=120,
+       command=ventana.destroy
+    ).grid(row=0, column=5, padx=8)
 
+    ctk.CTkButton(
+       frame_botones,
+       text="Eliminar Pago",
+       width=130,
+       fg_color="#d9534f",
+       hover_color="#c9302c",
+       command=eliminar_pago_seleccionado
+    ).grid(row=0, column=6, padx=8) 
 # ---------------- CARGA INICIAL ----------------
 
     cargar_clientes()

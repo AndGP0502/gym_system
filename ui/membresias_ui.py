@@ -144,7 +144,7 @@ def abrir_ventana_membresias(parent):
                 values=(
                     m[0],
                     m[1],
-                    f"{float(m[2]):.2f}",
+                    f"${float(m[2]):.2f}",
                     m[3]
                 )
             )
