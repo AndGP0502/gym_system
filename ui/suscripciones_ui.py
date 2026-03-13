@@ -15,17 +15,25 @@ def abrir_ventana_suscripciones(parent):
 
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Suscripciones")
-    
-    # ventana maximizada
+
     ventana.state("zoomed")
-    
-    # permitir controles del sistema
     ventana.resizable(True, True)
-    
-    # traer al frente
+
+    # asegurar que se cree completamente
+    ventana.update_idletasks()
+
+    # forzar foco y frente
     ventana.lift()
     ventana.focus_force()
+    ventana.attributes("-topmost", True)
 
+    # quitar topmost después
+    ventana.after(150, lambda: ventana.attributes("-topmost", False))
+
+    # bajar momentáneamente la ventana padre
+    parent.after(10, parent.lift)
+
+    ventana.grab_set()
 # ---------- FRAME PRINCIPAL ----------
 
     scroll = ctk.CTkScrollableFrame(ventana)
