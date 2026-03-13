@@ -1,118 +1,277 @@
 import customtkinter as ctk
-from tkinter import ttk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 from datetime import datetime
+from collections import Counter
+
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from modulos.clientes import agregar_cliente, ver_clientes, eliminar_cliente, editar_cliente
 
 
 def abrir_ventana_clientes(parent):
-
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Gestión de Clientes")
-
-    ventana.geometry("950x650")
+    ventana.state("zoomed")
     ventana.resizable(True, True)
+    ventana.configure(fg_color="#2b2b2b")
 
-    # asegurar que la ventana esté creada
     ventana.update_idletasks()
-
-    # traer al frente
     ventana.lift()
     ventana.focus_force()
     ventana.attributes("-topmost", True)
-
-    # quitar topmost después para comportamiento normal
     ventana.after(200, lambda: ventana.attributes("-topmost", False))
-
     ventana.grab_set()
 
     # -------- SCROLL PRINCIPAL --------
-    scroll = ctk.CTkScrollableFrame(ventana)
-    scroll.pack(fill="both", expand=True)
+    scroll = ctk.CTkScrollableFrame(ventana, fg_color="#2b2b2b")
+    scroll.pack(fill="both", expand=True, padx=15, pady=15)
 
-    # -------- BOTON VOLVER --------
+    # -------- HEADER SUPERIOR --------
+    frame_header = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
+    frame_header.pack(fill="x", padx=10, pady=(5, 15))
+
+    titulo = ctk.CTkLabel(
+        frame_header,
+        text="Clientes del Gimnasio",
+        font=("Segoe UI", 28, "bold"),
+        text_color="white"
+    )
+    titulo.pack(side="left", padx=20, pady=20)
+
+    subtitulo = ctk.CTkLabel(
+        frame_header,
+        text="Administra, busca, edita y elimina clientes registrados",
+        font=("Segoe UI", 14),
+        text_color="#d6d6d6"
+    )
+    subtitulo.pack(side="left", padx=(0, 10), pady=20)
+
     boton_regresar = ctk.CTkButton(
-        ventana,
+        frame_header,
         text="← Volver al menú",
         width=170,
-        height=35,
-        font=("Segoe UI", 14),
+        height=40,
+        font=("Segoe UI", 14, "bold"),
+        corner_radius=12,
+        fg_color="#2A2A2A",
+        hover_color="#3A3A3A",
         command=ventana.destroy
     )
-    boton_regresar.place(relx=0.97, y=30, anchor="ne")
+    boton_regresar.pack(side="right", padx=20, pady=20)
 
-    # -------- TITULO --------
-    titulo = ctk.CTkLabel(
-        scroll,
-        text="Clientes del Gimnasio",
-        font=("Arial", 24, "bold")
+    # -------- TARJETAS ESTADISTICAS --------
+    frame_stats = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
+    frame_stats.pack(fill="x", padx=10, pady=10)
+
+    card_total = ctk.CTkFrame(frame_stats, corner_radius=15, fg_color="#1f6aa5")
+    card_total.pack(side="left", padx=10, pady=10, expand=True, fill="both")
+
+    ctk.CTkLabel(
+        card_total,
+        text="Total Clientes",
+        font=("Segoe UI", 16, "bold"),
+        text_color="white"
+    ).pack(pady=(15, 5))
+
+    numero_total = ctk.CTkLabel(
+        card_total,
+        text="0",
+        font=("Segoe UI", 32, "bold"),
+        text_color="white"
     )
-    titulo.pack(pady=15)
+    numero_total.pack(pady=(0, 15))
+
+    card_activos = ctk.CTkFrame(frame_stats, corner_radius=15, fg_color="#198754")
+    card_activos.pack(side="left", padx=10, pady=10, expand=True, fill="both")
+
+    ctk.CTkLabel(
+        card_activos,
+        text="Clientes Activos",
+        font=("Segoe UI", 16, "bold"),
+        text_color="white"
+    ).pack(pady=(15, 5))
+
+    numero_activos = ctk.CTkLabel(
+        card_activos,
+        text="0",
+        font=("Segoe UI", 32, "bold"),
+        text_color="white"
+    )
+    numero_activos.pack(pady=(0, 15))
+
+    card_hoy = ctk.CTkFrame(frame_stats, corner_radius=15, fg_color="#0d6efd")
+    card_hoy.pack(side="left", padx=10, pady=10, expand=True, fill="both")
+
+    ctk.CTkLabel(
+        card_hoy,
+        text="Nuevos Hoy",
+        font=("Segoe UI", 16, "bold"),
+        text_color="white"
+    ).pack(pady=(15, 5))
+
+    numero_hoy = ctk.CTkLabel(
+        card_hoy,
+        text="0",
+        font=("Segoe UI", 32, "bold"),
+        text_color="white"
+    )
+    numero_hoy.pack(pady=(0, 15))
+
+    # -------- GRAFICO --------
+    frame_grafico = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
+    frame_grafico.pack(fill="x", padx=10, pady=10)
+
+    ctk.CTkLabel(
+        frame_grafico,
+        text="Clientes registrados por mes",
+        font=("Segoe UI", 20, "bold"),
+        text_color="white"
+    ).pack(anchor="w", padx=20, pady=(15, 5))
+
+    grafico_container = ctk.CTkFrame(frame_grafico, fg_color="#3f3f3f", corner_radius=15)
+    grafico_container.pack(fill="x", padx=15, pady=(0, 15))
+
+    fig = Figure(figsize=(10, 3.5), dpi=100)
+    ax = fig.add_subplot(111)
+
+    fig.patch.set_facecolor("#3f3f3f")
+    ax.set_facecolor("#3f3f3f")
+
+    canvas = FigureCanvasTkAgg(fig, master=grafico_container)
+    canvas_widget = canvas.get_tk_widget()
+    canvas_widget.pack(fill="both", expand=True, padx=10, pady=10)
+
+    # -------- CONTENEDOR SUPERIOR --------
+    frame_top = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
+    frame_top.pack(fill="x", padx=10, pady=10)
 
     # -------- FORMULARIO --------
-    frame_form = ctk.CTkFrame(scroll)
-    frame_form.pack(pady=10, padx=20, fill="x")
+    frame_form = ctk.CTkFrame(frame_top, corner_radius=15, fg_color="#3f3f3f")
+    frame_form.pack(fill="x", padx=15, pady=15)
 
-    ctk.CTkLabel(frame_form, text="Nombre", font=("Segoe UI", 15)).grid(row=0, column=0, padx=10, pady=8)
-    entry_nombre = ctk.CTkEntry(frame_form, width=250, height=35)
-    entry_nombre.grid(row=0, column=1, padx=10, pady=8)
+    label_form = ctk.CTkLabel(
+        frame_form,
+        text="Formulario de Cliente",
+        font=("Segoe UI", 20, "bold"),
+        text_color="white"
+    )
+    label_form.grid(row=0, column=0, columnspan=4, sticky="w", padx=20, pady=(15, 20))
 
-    ctk.CTkLabel(frame_form, text="Cédula", font=("Segoe UI", 15)).grid(row=1, column=0, padx=10, pady=8)
-    entry_cedula = ctk.CTkEntry(frame_form, width=250, height=35)
-    entry_cedula.grid(row=1, column=1, padx=10, pady=8)
+    ctk.CTkLabel(frame_form, text="Nombre", font=("Segoe UI", 15, "bold"), text_color="white").grid(
+        row=1, column=0, padx=20, pady=10, sticky="w"
+    )
+    entry_nombre = ctk.CTkEntry(
+        frame_form, width=320, height=40, placeholder_text="Ingrese el nombre completo"
+    )
+    entry_nombre.grid(row=1, column=1, padx=15, pady=10, sticky="w")
 
-    ctk.CTkLabel(frame_form, text="Teléfono", font=("Segoe UI", 15)).grid(row=2, column=0, padx=10, pady=8)
-    entry_telefono = ctk.CTkEntry(frame_form, width=250, height=35)
-    entry_telefono.grid(row=2, column=1, padx=10, pady=8)
+    ctk.CTkLabel(frame_form, text="Cédula", font=("Segoe UI", 15, "bold"), text_color="white").grid(
+        row=1, column=2, padx=20, pady=10, sticky="w"
+    )
+    entry_cedula = ctk.CTkEntry(
+        frame_form, width=320, height=40, placeholder_text="Ingrese la cédula"
+    )
+    entry_cedula.grid(row=1, column=3, padx=15, pady=10, sticky="w")
 
-    ctk.CTkLabel(frame_form, text="Fecha Registro", font=("Segoe UI", 15)).grid(row=3, column=0, padx=10, pady=8)
-    entry_fecha = ctk.CTkEntry(frame_form, width=250, height=35)
-    entry_fecha.grid(row=3, column=1, padx=10, pady=8)
+    ctk.CTkLabel(frame_form, text="Teléfono", font=("Segoe UI", 15, "bold"), text_color="white").grid(
+        row=2, column=0, padx=20, pady=10, sticky="w"
+    )
+    entry_telefono = ctk.CTkEntry(
+        frame_form, width=320, height=40, placeholder_text="Ingrese el teléfono"
+    )
+    entry_telefono.grid(row=2, column=1, padx=15, pady=10, sticky="w")
 
-    # colocar fecha actual automática
+    ctk.CTkLabel(frame_form, text="Fecha Registro", font=("Segoe UI", 15, "bold"), text_color="white").grid(
+        row=2, column=2, padx=20, pady=10, sticky="w"
+    )
+    entry_fecha = ctk.CTkEntry(
+        frame_form, width=320, height=40
+    )
+    entry_fecha.grid(row=2, column=3, padx=15, pady=10, sticky="w")
+
     fecha_actual = datetime.now().strftime("%d/%m/%Y")
     entry_fecha.insert(0, fecha_actual)
 
-    # -------- CONTADOR --------
+    # -------- INFO Y BUSQUEDA --------
+    frame_info = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
+    frame_info.pack(fill="x", padx=10, pady=10)
+
     label_total = ctk.CTkLabel(
-        scroll,
+        frame_info,
         text="Total de clientes: 0",
-        font=("Segoe UI", 15, "bold")
+        font=("Segoe UI", 17, "bold"),
+        text_color="white"
     )
-    label_total.pack(pady=(10, 5))
-
-    # -------- BUSCADOR --------
-    frame_busqueda = ctk.CTkFrame(scroll)
-    frame_busqueda.pack(pady=10)
-
-    ctk.CTkLabel(
-        frame_busqueda,
-        text="Buscar cliente:",
-        font=("Segoe UI", 15)
-    ).grid(row=0, column=0, padx=10, pady=10)
+    label_total.pack(side="left", padx=20, pady=18)
 
     entry_buscar = ctk.CTkEntry(
-        frame_busqueda,
-        width=280,
-        height=35,
-        font=("Segoe UI", 15),
+        frame_info,
+        width=340,
+        height=40,
+        font=("Segoe UI", 14),
         placeholder_text="Buscar por nombre, cédula o teléfono"
     )
-    entry_buscar.grid(row=0, column=1, padx=10, pady=10)
+    entry_buscar.pack(side="right", padx=20, pady=15)
+
+    label_buscar = ctk.CTkLabel(
+        frame_info,
+        text="Buscar cliente:",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white"
+    )
+    label_buscar.pack(side="right", padx=(10, 5), pady=15)
 
     # -------- ESTILO TABLA --------
     style = ttk.Style()
-    style.configure("Treeview", font=("Segoe UI", 13), rowheight=30)
-    style.configure("Treeview.Heading", font=("Segoe UI", 14, "bold"))
+    style.theme_use("default")
+
+    style.configure(
+        "Treeview",
+        background="#3a3a3a",
+        foreground="white",
+        fieldbackground="#3a3a3a",
+        rowheight=34,
+        font=("Segoe UI", 12)
+    )
+
+    style.configure(
+        "Treeview.Heading",
+        background="#2f2f2f",
+        foreground="white",
+        font=("Segoe UI", 13, "bold")
+    )
+
+    style.map(
+        "Treeview",
+        background=[("selected", "#1f6aa5")],
+        foreground=[("selected", "white")]
+    )
 
     # -------- TABLA --------
-    frame_tabla = ctk.CTkFrame(scroll)
-    frame_tabla.pack(pady=10, padx=20, fill="both", expand=True)
+    frame_tabla = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
+    frame_tabla.pack(fill="both", expand=True, padx=10, pady=10)
+
+    label_tabla = ctk.CTkLabel(
+        frame_tabla,
+        text="Lista de Clientes",
+        font=("Segoe UI", 20, "bold"),
+        text_color="white"
+    )
+    label_tabla.pack(anchor="w", padx=20, pady=(15, 5))
+
+    tabla_container = ctk.CTkFrame(frame_tabla, fg_color="transparent")
+    tabla_container.pack(fill="both", expand=True, padx=15, pady=10)
 
     columnas = ("ID", "Nombre", "Cedula", "Telefono", "Fecha")
 
-    tabla = ttk.Treeview(frame_tabla, columns=columnas, show="headings", height=12)
+    tabla = ttk.Treeview(
+        tabla_container,
+        columns=columnas,
+        show="headings",
+        height=14,
+        selectmode="browse"
+    )
 
     tabla.heading("ID", text="ID")
     tabla.heading("Nombre", text="Nombre")
@@ -121,25 +280,85 @@ def abrir_ventana_clientes(parent):
     tabla.heading("Fecha", text="Fecha Registro")
 
     tabla.column("ID", width=70, anchor="center")
-    tabla.column("Nombre", width=220, anchor="center")
-    tabla.column("Cedula", width=160, anchor="center")
-    tabla.column("Telefono", width=160, anchor="center")
-    tabla.column("Fecha", width=160, anchor="center")
+    tabla.column("Nombre", width=320, anchor="center")
+    tabla.column("Cedula", width=180, anchor="center")
+    tabla.column("Telefono", width=180, anchor="center")
+    tabla.column("Fecha", width=180, anchor="center")
 
-    tabla.pack(pady=10, fill="both", expand=True)
+    scrollbar_y = ttk.Scrollbar(tabla_container, orient="vertical", command=tabla.yview)
+    tabla.configure(yscrollcommand=scrollbar_y.set)
+
+    tabla.pack(side="left", fill="both", expand=True)
+    scrollbar_y.pack(side="right", fill="y")
 
     # -------- VARIABLE CLIENTE SELECCIONADO --------
     cliente_seleccionado = None
+
+    # -------- FUNCIONES DE ESTADISTICAS Y GRAFICO --------
+    def actualizar_grafico(clientes):
+        ax.clear()
+        ax.set_facecolor("#3f3f3f")
+        fig.patch.set_facecolor("#3f3f3f")
+
+        meses_orden = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
+                       "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+        contador = Counter()
+
+        for cliente in clientes:
+            try:
+                fecha_txt = str(cliente[4]).strip()
+                fecha_obj = datetime.strptime(fecha_txt, "%d/%m/%Y")
+                mes = meses_orden[fecha_obj.month - 1]
+                contador[mes] += 1
+            except Exception:
+                continue
+
+        valores = [contador.get(mes, 0) for mes in meses_orden]
+
+        ax.bar(meses_orden, valores, color="#1f6aa5")
+        ax.set_title("Clientes registrados por mes", color="white", fontsize=14)
+        ax.tick_params(axis="x", colors="white")
+        ax.tick_params(axis="y", colors="white")
+        ax.spines["bottom"].set_color("white")
+        ax.spines["left"].set_color("white")
+        ax.spines["top"].set_color("#3f3f3f")
+        ax.spines["right"].set_color("#3f3f3f")
+        ax.grid(axis="y", linestyle="--", alpha=0.3)
+
+        canvas.draw()
+
+    def actualizar_tarjetas(clientes):
+        total = len(clientes)
+        hoy = datetime.now().strftime("%d/%m/%Y")
+
+        nuevos_hoy = 0
+        for cliente in clientes:
+            try:
+                if str(cliente[4]).strip() == hoy:
+                    nuevos_hoy += 1
+            except Exception:
+                pass
+
+        numero_total.configure(text=str(total))
+        numero_activos.configure(text=str(total))
+        numero_hoy.configure(text=str(nuevos_hoy))
+        label_total.configure(text=f"Total de clientes: {total}")
 
     # -------- MOSTRAR EN TABLA --------
     def mostrar_en_tabla(clientes):
         for fila in tabla.get_children():
             tabla.delete(fila)
 
-        for cliente in clientes:
-            tabla.insert("", "end", values=cliente)
+        for i, cliente in enumerate(clientes):
+            tag = "par" if i % 2 == 0 else "impar"
+            tabla.insert("", "end", values=cliente, tags=(tag,))
 
-        label_total.configure(text=f"Total de clientes: {len(clientes)}")
+        tabla.tag_configure("par", background="#3a3a3a")
+        tabla.tag_configure("impar", background="#444444")
+
+        actualizar_tarjetas(clientes)
+        actualizar_grafico(clientes)
 
     # -------- FUNCION CARGAR CLIENTES --------
     def cargar_clientes():
@@ -154,6 +373,7 @@ def abrir_ventana_clientes(parent):
         entry_cedula.delete(0, ctk.END)
         entry_telefono.delete(0, ctk.END)
         entry_fecha.delete(0, ctk.END)
+        entry_fecha.insert(0, datetime.now().strftime("%d/%m/%Y"))
 
         seleccion = tabla.selection()
         if seleccion:
@@ -208,7 +428,6 @@ def abrir_ventana_clientes(parent):
         nonlocal cliente_seleccionado
 
         seleccion = tabla.selection()
-
         if not seleccion:
             return
 
@@ -242,7 +461,7 @@ def abrir_ventana_clientes(parent):
 
         confirmar = messagebox.askyesno(
             "Confirmar eliminación",
-            "¿Seguro que desea eliminar este cliente?"
+            f"¿Seguro que desea eliminar al cliente '{valores[1]}'?"
         )
 
         if not confirmar:
@@ -251,7 +470,6 @@ def abrir_ventana_clientes(parent):
         eliminar_cliente(cliente_id)
 
         messagebox.showinfo("Éxito", "Cliente eliminado correctamente")
-
         limpiar_campos()
         cargar_clientes()
 
@@ -287,65 +505,78 @@ def abrir_ventana_clientes(parent):
             return
 
         messagebox.showinfo("Éxito", "Cliente actualizado correctamente")
-
         limpiar_campos()
         cargar_clientes()
 
     # -------- FRAME BOTONES --------
-    frame_botones = ctk.CTkFrame(scroll)
-    frame_botones.pack(pady=15)
+    frame_botones = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
+    frame_botones.pack(fill="x", padx=10, pady=(10, 20))
 
     boton_agregar = ctk.CTkButton(
         frame_botones,
         text="Agregar Cliente",
-        width=150,
-        height=40,
+        width=170,
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#198754",
+        hover_color="#157347",
         command=agregar
     )
-    boton_agregar.grid(row=0, column=0, padx=10, pady=10)
+    boton_agregar.grid(row=0, column=0, padx=15, pady=20)
 
     boton_limpiar = ctk.CTkButton(
         frame_botones,
         text="Limpiar",
-        width=120,
-        height=40,
-        fg_color="gray40",
-        hover_color="gray30",
+        width=140,
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="gray35",
+        hover_color="gray25",
         command=limpiar_campos
     )
-    boton_limpiar.grid(row=0, column=1, padx=10, pady=10)
+    boton_limpiar.grid(row=0, column=1, padx=15, pady=20)
 
     boton_actualizar = ctk.CTkButton(
         frame_botones,
         text="Actualizar Lista",
-        width=150,
-        height=40,
+        width=170,
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#0d6efd",
+        hover_color="#0b5ed7",
         command=cargar_clientes
     )
-    boton_actualizar.grid(row=0, column=2, padx=10, pady=10)
-
-    boton_eliminar = ctk.CTkButton(
-        frame_botones,
-        text="Eliminar Cliente",
-        width=150,
-        height=40,
-        fg_color="red",
-        hover_color="#8B0000",
-        command=eliminar
-    )
-    boton_eliminar.grid(row=0, column=3, padx=10, pady=10)
+    boton_actualizar.grid(row=0, column=2, padx=15, pady=20)
 
     boton_editar = ctk.CTkButton(
         frame_botones,
         text="Editar Cliente",
-        width=150,
-        height=40,
+        width=170,
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
         fg_color="#f0ad4e",
         hover_color="#d9962f",
+        text_color="black",
         command=editar
     )
-    boton_editar.grid(row=0, column=4, padx=10, pady=10)
+    boton_editar.grid(row=0, column=3, padx=15, pady=20)
+
+    boton_eliminar = ctk.CTkButton(
+        frame_botones,
+        text="Eliminar Cliente",
+        width=170,
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#dc3545",
+        hover_color="#bb2d3b",
+        command=eliminar
+    )
+    boton_eliminar.grid(row=0, column=4, padx=15, pady=20)
 
     # -------- CARGAR DATOS --------
     cargar_clientes()
-    
