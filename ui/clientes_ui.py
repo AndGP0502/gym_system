@@ -236,6 +236,21 @@ def abrir_ventana_clientes(parent):
         if not all([nombre, cedula, telefono, fecha]):
             messagebox.showerror("Error", "Todos los campos son obligatorios")
             return
+        
+        aceptar_datos = messagebox.askyesno(
+            "Consentimiento de uso de datos",
+            "Al continuar con el registro, el cliente autoriza el uso de sus datos personales "
+            "únicamente para fines administrativos, de contacto, gestión de membresías, pagos, "
+            "control interno y servicios relacionados con el gimnasio.\n\n"
+            "La información será tratada de manera confidencial y no será compartida con terceros "
+            "ajenos a la gestión del servicio.\n\n"
+            "¿Desea aceptar y continuar con el registro?"
+    )
+        
+        if not aceptar_datos:
+            messagebox.showinfo("Registro cancelado", "No se realizó el registro del cliente.")
+            return
+    
         mensaje = agregar_cliente(nombre, cedula, telefono, fecha)
         if "correctamente" in mensaje:
             messagebox.showinfo("Éxito", mensaje)
