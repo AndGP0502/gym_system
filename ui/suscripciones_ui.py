@@ -4,6 +4,7 @@ from tkinter import ttk, messagebox, simpledialog
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import sqlite3
+import json
 import os
 
 from modulos.suscripciones import (
@@ -17,11 +18,36 @@ from modulos.suscripciones import (
     ingresos_por_mes
 )
 
-CLAVE_EMERGENCIA = "12345"
+BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
+DB_PATH     = os.path.join(BASE_DIR, "..", "gym.db")
+CONFIG_PATH = os.path.join(BASE_DIR, "..", "config.json")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH  = os.path.join(BASE_DIR, "..", "gym.db")
 
+# ── Helpers de configuración ─────────────────────────────────────────────────
+
+def leer_clave() -> str:
+    """Lee la clave de emergencia desde config.json."""
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f).get("clave_emergencia", "12345")
+    except Exception:
+        return "12345"
+
+
+def guardar_clave(nueva_clave: str):
+    """Guarda la nueva clave en config.json."""
+    config = {}
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            config = json.load(f)
+    except Exception:
+        pass
+    config["clave_emergencia"] = nueva_clave
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=4, ensure_ascii=False)
+
+
+# ── Ventana principal ─────────────────────────────────────────────────────────
 
 def abrir_ventana_suscripciones(parent):
 
@@ -29,8 +55,18 @@ def abrir_ventana_suscripciones(parent):
     ventana.title("Suscripciones")
     ventana.state("zoomed")
     ventana.resizable(True, True)
+
+    ventana.attributes("-topmost", True)
+    ventana.after(300, lambda: ventana.attributes("-topmost", False))
     ventana.lift()
     ventana.focus_force()
+    ventana.grab_set()
+
+    def traer_al_frente():
+        ventana.attributes("-topmost", True)
+        ventana.lift()
+        ventana.focus_force()
+        ventana.after(200, lambda: ventana.attributes("-topmost", False))
 
     scroll = ctk.CTkScrollableFrame(ventana)
     scroll.pack(fill="both", expand=True)
@@ -143,7 +179,6 @@ def abrir_ventana_suscripciones(parent):
 
     tabla.pack(fill="both", expand=True)
 
-    # ── Recarga la tabla con TODAS las suscripciones ─────────────────────────
     def recargar_tabla():
         for fila in tabla.get_children():
             tabla.delete(fila)
@@ -183,83 +218,93 @@ def abrir_ventana_suscripciones(parent):
     def eliminar_seleccionada():
         seleccion = tabla.selection()
         if not seleccion:
-            messagebox.showwarning("Sin seleccion", "Selecciona una suscripcion de la tabla primero.")
+            messagebox.showwarning("Sin seleccion", "Selecciona una suscripcion de la tabla primero.", parent=ventana)
+            traer_al_frente()
             return
-
         fila   = tabla.item(seleccion[0])["values"]
         id_sus = fila[0]
         nombre = fila[1]
-
         if not id_sus:
-            messagebox.showwarning("Sin ID", "Esta fila no tiene un ID valido para eliminar.")
+            messagebox.showwarning("Sin ID", "Esta fila no tiene un ID valido para eliminar.", parent=ventana)
+            traer_al_frente()
             return
-
-        if messagebox.askyesno("Confirmar", f"Eliminar suscripcion #{id_sus} de '{nombre}'?"):
+        if messagebox.askyesno("Confirmar", f"Eliminar suscripcion #{id_sus} de '{nombre}'?", parent=ventana):
             eliminar_suscripcion(int(id_sus))
             recargar_tabla()
             cargar_grafico_ingresos()
-            messagebox.showinfo("Eliminado", f"Suscripcion #{id_sus} eliminada correctamente.")
+            messagebox.showinfo("Eliminado", f"Suscripcion #{id_sus} eliminada correctamente.", parent=ventana)
+        traer_al_frente()
 
-    # ── Popup agregar suscripcion ─────────────────────────────────────────────
     def abrir_popup_agregar():
         popup = ctk.CTkToplevel(ventana)
         popup.title("Nueva suscripcion")
-        popup.geometry("420x440")
+        popup.geometry("420x460")
         popup.resizable(False, False)
+        popup.attributes("-topmost", True)
+        popup.after(300, lambda: popup.attributes("-topmost", False))
         popup.lift()
         popup.focus_force()
-        popup.grab_set()
 
-        ctk.CTkLabel(
-            popup,
-            text="Nueva suscripcion",
-            font=("Segoe UI", 20, "bold")
-        ).pack(pady=(20, 10))
+        ctk.CTkLabel(popup, text="Nueva suscripcion", font=("Segoe UI", 20, "bold")).pack(pady=(20, 10))
 
         frame_form = ctk.CTkFrame(popup, corner_radius=12)
         frame_form.pack(fill="x", padx=20, pady=10)
 
         campos = [
-            ("ID Cliente",                "Ej: 1"),
-            ("ID Membresia",              "Ej: 1"),
-            ("Precio total",              "Ej: 30.00"),
-            ("Monto pagado",              "Ej: 30.00"),
-            ("Fecha inicio (YYYY-MM-DD)", "Dejar vacio = hoy"),
+            "ID Cliente",
+            "ID Membresia",
+            "Precio total",
+            "Monto pagado",
+            "Fecha inicio (YYYY-MM-DD, vacio=hoy)",
         ]
 
         entries_popup = []
-        for i, (label, placeholder) in enumerate(campos):
+        for i, label in enumerate(campos):
             ctk.CTkLabel(frame_form, text=label, font=("Segoe UI", 12)).grid(
                 row=i, column=0, padx=15, pady=7, sticky="w"
             )
-            entry = ctk.CTkEntry(frame_form, width=190, placeholder_text=placeholder)
+            entry = ctk.CTkEntry(frame_form, width=190)
             entry.grid(row=i, column=1, padx=15, pady=7)
             entries_popup.append(entry)
 
         e_cliente, e_membresia, e_precio, e_pagado, e_fecha = entries_popup
 
+        lbl_error = ctk.CTkLabel(popup, text="", text_color="#FF4444", font=("Segoe UI", 12))
+        lbl_error.pack(pady=(0, 5))
+
         def guardar():
-            try:
-                cliente   = int(e_cliente.get())
-                membresia = int(e_membresia.get())
-                precio    = float(e_precio.get())
-                pagado    = float(e_pagado.get())
-            except Exception:
-                messagebox.showerror("Error", "Verifica que ID, precio y monto sean numeros validos.")
+            val_cliente   = e_cliente.get().strip()
+            val_membresia = e_membresia.get().strip()
+            val_precio    = e_precio.get().strip()
+            val_pagado    = e_pagado.get().strip()
+            val_fecha     = e_fecha.get().strip()
+
+            if not val_cliente or not val_membresia or not val_precio or not val_pagado:
+                lbl_error.configure(text="Completa todos los campos obligatorios.")
                 return
 
-            fecha = e_fecha.get().strip()
-            if fecha == "":
+            try:
+                cliente   = int(val_cliente)
+                membresia = int(val_membresia)
+                precio    = float(val_precio)
+                pagado    = float(val_pagado)
+            except ValueError:
+                lbl_error.configure(text="ID debe ser entero, precio y pagado deben ser numeros.")
+                return
+
+            if val_fecha == "":
                 asignar_membresia(cliente, membresia, precio, pagado)
             else:
-                asignar_membresia(cliente, membresia, precio, pagado, fecha)
+                asignar_membresia(cliente, membresia, precio, pagado, val_fecha)
 
             recargar_tabla()
             cargar_grafico_ingresos()
             popup.destroy()
+            traer_al_frente()
             messagebox.showinfo(
                 "Exito",
-                "Suscripcion agregada.\nPresiona 'Actualizar' en el dashboard para ver el contador actualizado."
+                "Suscripcion agregada correctamente.\nPresiona 'Actualizar' en el dashboard para ver el contador.",
+                parent=ventana
             )
 
         ctk.CTkButton(
@@ -270,9 +315,8 @@ def abrir_ventana_suscripciones(parent):
             fg_color="#1a7a1a",
             hover_color="#145214",
             command=guardar
-        ).pack(pady=18)
+        ).pack(pady=15)
 
-    # Fila de botones de vista
     botones_vista = [
         ("Estado del gimnasio", estado_gimnasio),
         ("Clientes vencidos",   ver_vencidos),
@@ -286,7 +330,6 @@ def abrir_ventana_suscripciones(parent):
             width=165, height=40, command=cmd
         ).grid(row=0, column=i, padx=6, pady=10)
 
-    # Agregar (verde)
     ctk.CTkButton(
         frame_botones,
         text="+ Agregar suscripcion",
@@ -296,7 +339,6 @@ def abrir_ventana_suscripciones(parent):
         command=abrir_popup_agregar
     ).grid(row=0, column=len(botones_vista), padx=6, pady=10)
 
-    # Eliminar (rojo)
     ctk.CTkButton(
         frame_botones,
         text="Eliminar suscripcion",
@@ -306,7 +348,7 @@ def abrir_ventana_suscripciones(parent):
         command=eliminar_seleccionada
     ).grid(row=0, column=len(botones_vista) + 1, padx=6, pady=10)
 
-    # ---------- FORMULARIO FIJO (mantenido) ----------
+    # ---------- FORMULARIO FIJO ----------
     frame_asignar = ctk.CTkFrame(scroll, corner_radius=18)
     frame_asignar.pack(fill="x", padx=20, pady=20)
 
@@ -328,13 +370,24 @@ def abrir_ventana_suscripciones(parent):
     entry_cliente, entry_membresia, entry_precio, entry_pagado, entry_fecha = entries
 
     def asignar():
+        val_c  = entry_cliente.get().strip()
+        val_m  = entry_membresia.get().strip()
+        val_p  = entry_precio.get().strip()
+        val_pa = entry_pagado.get().strip()
+
+        if not val_c or not val_m or not val_p or not val_pa:
+            messagebox.showerror("Error", "Completa todos los campos obligatorios.", parent=ventana)
+            traer_al_frente()
+            return
+
         try:
-            cliente   = int(entry_cliente.get())
-            membresia = int(entry_membresia.get())
-            precio    = float(entry_precio.get())
-            pagado    = float(entry_pagado.get())
-        except Exception:
-            messagebox.showerror("Error", "Datos invalidos")
+            cliente   = int(val_c)
+            membresia = int(val_m)
+            precio    = float(val_p)
+            pagado    = float(val_pa)
+        except ValueError:
+            messagebox.showerror("Error", "ID debe ser entero, precio y pagado deben ser numeros.", parent=ventana)
+            traer_al_frente()
             return
 
         fecha = entry_fecha.get().strip()
@@ -348,7 +401,8 @@ def abrir_ventana_suscripciones(parent):
 
         recargar_tabla()
         cargar_grafico_ingresos()
-        messagebox.showinfo("Exito", "Membresia asignada correctamente.")
+        traer_al_frente()
+        messagebox.showinfo("Exito", "Membresia asignada correctamente.", parent=ventana)
 
     ctk.CTkButton(
         frame_asignar,
@@ -373,13 +427,82 @@ def abrir_ventana_suscripciones(parent):
         text="Esta accion borra TODOS los clientes, suscripciones y pagos. No se puede deshacer.",
         font=("Segoe UI", 12),
         text_color="gray60"
-    ).pack(anchor="w", padx=20, pady=(0, 10))
+    ).pack(anchor="w", padx=20, pady=(0, 15))
 
+    # ── Cambiar contraseña ────────────────────────────────────────────────────
+    ctk.CTkLabel(
+        frame_emergencia,
+        text="Cambiar contraseña de administrador",
+        font=("Segoe UI", 13, "bold"),
+        text_color="#FF8888"
+    ).pack(anchor="w", padx=20, pady=(0, 8))
+
+    frame_clave = ctk.CTkFrame(frame_emergencia, fg_color="transparent")
+    frame_clave.pack(fill="x", padx=20, pady=(0, 20))
+
+    entry_clave_actual = ctk.CTkEntry(
+        frame_clave, width=200, height=38,
+        placeholder_text="Contraseña actual", show="*"
+    )
+    entry_clave_actual.pack(side="left", padx=(0, 8))
+
+    entry_clave_nueva = ctk.CTkEntry(
+        frame_clave, width=200, height=38,
+        placeholder_text="Nueva contraseña", show="*"
+    )
+    entry_clave_nueva.pack(side="left", padx=(0, 8))
+
+    entry_clave_confirmar = ctk.CTkEntry(
+        frame_clave, width=200, height=38,
+        placeholder_text="Confirmar nueva contraseña", show="*"
+    )
+    entry_clave_confirmar.pack(side="left", padx=(0, 8))
+
+    def cambiar_clave():
+        actual     = entry_clave_actual.get().strip()
+        nueva      = entry_clave_nueva.get().strip()
+        confirmar  = entry_clave_confirmar.get().strip()
+        clave_real = leer_clave()
+
+        if actual != clave_real:
+            messagebox.showerror("Error", "La contraseña actual es incorrecta.", parent=ventana)
+            traer_al_frente()
+            return
+
+        if not nueva:
+            messagebox.showwarning("Advertencia", "La nueva contraseña no puede estar vacía.", parent=ventana)
+            traer_al_frente()
+            return
+
+        if nueva != confirmar:
+            messagebox.showerror("Error", "La nueva contraseña y la confirmación no coinciden.", parent=ventana)
+            traer_al_frente()
+            return
+
+        guardar_clave(nueva)
+        entry_clave_actual.delete(0, ctk.END)
+        entry_clave_nueva.delete(0, ctk.END)
+        entry_clave_confirmar.delete(0, ctk.END)
+        messagebox.showinfo("Éxito", "Contraseña actualizada y guardada correctamente.", parent=ventana)
+        traer_al_frente()
+
+    ctk.CTkButton(
+        frame_clave,
+        text="Cambiar",
+        width=110, height=38,
+        fg_color="#8B4500",
+        hover_color="#A05200",
+        command=cambiar_clave
+    ).pack(side="left")
+
+    # ── Botón borrar todo ─────────────────────────────────────────────────────
     def borrar_todo():
         if not messagebox.askyesno(
             "Borrar toda la base de datos",
-            "Estas seguro? Se eliminaran clientes, suscripciones, pagos y alertas.\nEsta accion NO se puede deshacer."
+            "Estas seguro? Se eliminaran clientes, suscripciones, pagos y alertas.\nEsta accion NO se puede deshacer.",
+            parent=ventana
         ):
+            traer_al_frente()
             return
 
         clave = simpledialog.askstring(
@@ -390,10 +513,12 @@ def abrir_ventana_suscripciones(parent):
         )
 
         if clave is None:
+            traer_al_frente()
             return
 
-        if clave != CLAVE_EMERGENCIA:
-            messagebox.showerror("Contrasena incorrecta", "La contrasena ingresada no es correcta.")
+        if clave != leer_clave():
+            messagebox.showerror("Contrasena incorrecta", "La contrasena ingresada no es correcta.", parent=ventana)
+            traer_al_frente()
             return
 
         try:
@@ -409,10 +534,12 @@ def abrir_ventana_suscripciones(parent):
 
             recargar_tabla()
             cargar_grafico_ingresos()
-            messagebox.showinfo("Listo", "Base de datos limpiada. IDs reiniciados desde 1.")
+            traer_al_frente()
+            messagebox.showinfo("Listo", "Base de datos limpiada. IDs reiniciados desde 1.", parent=ventana)
 
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo limpiar:\n{e}")
+            messagebox.showerror("Error", f"No se pudo limpiar:\n{e}", parent=ventana)
+            traer_al_frente()
 
     ctk.CTkButton(
         frame_emergencia,

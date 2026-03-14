@@ -11,7 +11,7 @@ from modulos.membresias import contar_membresias
 from modulos.suscripciones import contar_suscripciones_vencidas, contar_clientes_activos
 from modulos.backup_db import crear_backup, restaurar_backup
 from modulos.graficas import grafica_clientes
-
+from ui.importar_excel import abrir_ventana_importar
 from tkinter import messagebox
 from PIL import Image, ImageTk
 import os
@@ -109,6 +109,14 @@ def iniciar_ventana():
 
     ttk.Separator(sidebar).pack(fill="x", pady=20)
 
+    #----BOTÓN PARA IMPORTAR EXCEL------
+    ttk.Button(
+    sidebar, text="📥 Importar Excel", bootstyle="info",
+    command=lambda: abrir_ventana_importar(ventana), **boton_style
+    ).pack(pady=6)
+
+    ttk.Separator(sidebar).pack(fill="x", pady=20)
+
     ttk.Button(
         sidebar, text="❌ Salir",
         command=ventana.destroy, **boton_style
@@ -202,15 +210,25 @@ def iniciar_ventana():
     contenido_inferior.columnconfigure(0, weight=1)
     contenido_inferior.columnconfigure(1, weight=1)
 
-    # ---- Actividad reciente (izquierda) ----
-    actividad = ttk.Frame(contenido_inferior, padding=30,)
-    actividad.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=10)
+    # ---- Logo del gimnasio (izquierda arriba) ----
+    ruta_gym = os.path.join("assets", "gym.jpg")
+    if os.path.exists(ruta_gym):
+        imagen = Image.open(ruta_gym).resize((450, 260), Image.LANCZOS)
+        img_gym = ImageTk.PhotoImage(imagen)
+        frame_gym = ttk.Frame(contenido_inferior, padding=20)
+        frame_gym.grid(row=0, column=0, sticky="n", padx=(0, 10), pady=10)
+        ttk.Label(frame_gym, text="Nuestro Gimnasio",
+                  font=("Segoe UI", 14, "bold")).pack(pady=(0, 10))
+        label_gym = ttk.Label(frame_gym, image=img_gym)
+        label_gym.image = img_gym
+        label_gym.pack()
 
-    ttk.Label(
-        actividad,
-        text="Actividad reciente",
-        font=("Segoe UI", 16, "bold")
-    ).pack(anchor="w", pady=(0, 16))
+   # ---- Actividad reciente (izquierda abajo) ----
+    actividad = ttk.Frame(contenido_inferior, padding=30)
+    actividad.grid(row=1, column=0, sticky="nw", padx=(0, 10), pady=10)
+
+    ttk.Label(actividad, text="Actividad reciente",
+              font=("Segoe UI", 16, "bold")).pack(anchor="w", pady=(0, 16))
 
     for item in [
         "✅ Sistema iniciado",
@@ -218,32 +236,13 @@ def iniciar_ventana():
         "✅ Membresías cargadas",
         "✅ Base de datos conectada",
     ]:
+        
         ttk.Label(actividad, text=item, font=("Segoe UI", 11)).pack(anchor="w", pady=5)
 
-    # ---- Gráfica (derecha) ----
+    # ---- Gráfica PIE (derecha, ocupa ambas filas) ----
     frame_grafica = ttk.Frame(contenido_inferior, padding=20, bootstyle="secondary")
-    frame_grafica.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=10)
+    frame_grafica.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(10, 0), pady=10)
 
     grafica_clientes(frame_grafica)
-
-    # ---- Foto del gimnasio (fila inferior, centrada) ----
-    ruta_gym = os.path.join("assets", "gym.jpg")
-    if os.path.exists(ruta_gym):
-        imagen = Image.open(ruta_gym).resize((450, 260), Image.LANCZOS)
-        img_gym = ImageTk.PhotoImage(imagen)
-
-        frame_gym = ttk.Frame(area, padding=20)
-        frame_gym.pack(pady=20)
-
-        ttk.Label(
-            frame_gym,
-            text="Nuestro Gimnasio",
-            font=("Segoe UI", 14, "bold")
-        ).pack(pady=(0, 10))
-
-        label_gym = ttk.Label(frame_gym, image=img_gym)
-        label_gym.image = img_gym
-        label_gym.pack()
-
     # ---------------- LOOP ----------------
     ventana.mainloop()
