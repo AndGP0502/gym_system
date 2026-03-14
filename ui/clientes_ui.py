@@ -341,40 +341,146 @@ def abrir_ventana_clientes(parent):
         abrir_ficha_cliente(ventana, cliente_seleccionado, nombre)
 
     # ── BOTONES ───────────────────────────────────────────────────────────────
-    contenedor_botones = ctk.CTkFrame(scroll)
+    contenedor_botones = ctk.CTkFrame(
+        scroll,
+        corner_radius=18,
+        fg_color="#343434"
+    )
     contenedor_botones.pack(fill="x", padx=10, pady=(10, 20))
 
-    canvas_botones = ctk.CTkCanvas(contenedor_botones, height=90, highlightthickness=0)
-    canvas_botones.pack(side="top", fill="x", expand=True)
+    frame_botones = ctk.CTkFrame(contenedor_botones, fg_color="transparent")
+    frame_botones.pack(fill="x", padx=20, pady=20)
 
-    scrollbar_botones = ctk.CTkScrollbar(contenedor_botones, orientation="horizontal",
-                                          command=canvas_botones.xview)
-    scrollbar_botones.pack(side="bottom", fill="x")
-    canvas_botones.configure(xscrollcommand=scrollbar_botones.set)
+    # 3 columnas principales
+    frame_botones.grid_columnconfigure(0, weight=1)
+    frame_botones.grid_columnconfigure(1, weight=1)
+    frame_botones.grid_columnconfigure(2, weight=1)
 
-    frame_botones = ctk.CTkFrame(canvas_botones, fg_color="#343434", corner_radius=18)
-    canvas_botones.create_window((0, 0), window=frame_botones, anchor="nw")
-    frame_botones.bind("<Configure>", lambda e: canvas_botones.configure(
-        scrollregion=canvas_botones.bbox("all")))
+    # GESTIÓN
+    ctk.CTkLabel(
+        frame_botones,
+        text="Gestión",
+        font=("Segoe UI", 18, "bold"),
+        text_color="white"
+    ).grid(row=0, column=0, pady=(0, 12))
 
-    botones = [
-        ("Agregar Cliente",    agregar,               "#198754", "#157347", "white", 0),
-        ("Limpiar",            limpiar_campos,         "gray35",  "gray25",  "white", 1),
-        ("Actualizar Lista",   cargar_clientes,        "#0d6efd", "#0b5ed7", "white", 2),
-        ("Editar Cliente",     editar,                 "#f0ad4e", "#d9962f", "black", 3),
-        ("Eliminar Cliente",   eliminar,               "#dc3545", "#bb2d3b", "white", 4),
-        ("Renovar +30 días",   renovar_suscripcion,    "#20c997", "#17a589", "white", 5),
-        ("Enviar alerta WPP",  enviar_whatsapp_manual, "#6f42c1", "#5a32a3", "white", 6),
-        ("📋 Ver Ficha",       ver_ficha,              "#1f6aa5", "#174f7a", "white", 7),
-    ]
+    ctk.CTkButton(
+        frame_botones,
+        text="Agregar Cliente",
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#198754",
+        hover_color="#157347",
+        text_color="white",
+        command=agregar
+    ).grid(row=1, column=0, padx=12, pady=6, sticky="ew")
 
-    for texto, cmd, color, hover, text_color, col in botones:
-        ctk.CTkButton(
-            frame_botones, text=texto,
-            width=170, height=45, corner_radius=12,
-            font=("Segoe UI", 14, "bold"),
-            fg_color=color, hover_color=hover,
-            text_color=text_color, command=cmd
-        ).grid(row=0, column=col, padx=15, pady=20)
+    ctk.CTkButton(
+        frame_botones,
+        text="Editar Cliente",
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#f0ad4e",
+        hover_color="#d9962f",
+        text_color="black",
+        command=editar
+    ).grid(row=2, column=0, padx=12, pady=6, sticky="ew")
+
+    ctk.CTkButton(
+        frame_botones,
+        text="📄 Ver ficha",
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#1f6aa5",
+        hover_color="#174f7a",
+        text_color="white",
+        command=ver_ficha
+    ).grid(row=3, column=0, padx=12, pady=6, sticky="ew")
+
+    # UTILIDADES
+    ctk.CTkLabel(
+        frame_botones,
+        text="Utilidades",
+        font=("Segoe UI", 18, "bold"),
+        text_color="white"
+    ).grid(row=0, column=1, pady=(0, 12))
+
+    ctk.CTkButton(
+        frame_botones,
+        text="Limpiar",
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="gray35",
+        hover_color="gray25",
+        text_color="white",
+        command=limpiar_campos
+    ).grid(row=1, column=1, padx=12, pady=6, sticky="ew")
+
+    ctk.CTkButton(
+        frame_botones,
+        text="Actualizar Lista",
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#0d6efd",
+        hover_color="#0b5ed7",
+        text_color="white",
+        command=cargar_clientes
+    ).grid(row=2, column=1, padx=12, pady=6, sticky="ew")
+
+   # botón vacío para alinear la columna
+    ctk.CTkLabel(
+        frame_botones,
+        text="",
+        fg_color="transparent"
+    ).grid(row=3, column=1, padx=12, pady=6, sticky="ew")
+
+# ACCIONES ESPECIALES
+    ctk.CTkLabel(
+        frame_botones,
+        text="Acciones especiales",
+        font=("Segoe UI", 18, "bold"),
+       text_color="white"
+    ).grid(row=0, column=2, pady=(0, 12))
+
+    ctk.CTkButton(
+        frame_botones,
+        text="Renovar +30 días",
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#20c997",
+        hover_color="#17a589",
+        text_color="white",
+        command=renovar_suscripcion
+    ).grid(row=1, column=2, padx=12, pady=6, sticky="ew")
+
+    ctk.CTkButton(
+        frame_botones,
+        text="Enviar alerta WPP",
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#6f42c1",
+        hover_color="#5a32a3",
+        text_color="white",
+        command=enviar_whatsapp_manual
+    ).grid(row=2, column=2, padx=12, pady=6, sticky="ew")
+
+    ctk.CTkButton(
+        frame_botones,
+        text="Eliminar Cliente",
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#dc3545",
+        hover_color="#bb2d3b",
+        text_color="white",
+        command=eliminar
+    ).grid(row=3, column=2, padx=12, pady=6, sticky="ew")
 
     cargar_clientes()
