@@ -6,6 +6,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import sqlite3
 import json
 import os
+from datetime import datetime  # ← FIX: importado para validar y normalizar fechas
 
 from modulos.suscripciones import (
     asignar_membresia,
@@ -45,6 +46,33 @@ def guardar_clave(nueva_clave: str):
     config["clave_emergencia"] = nueva_clave
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4, ensure_ascii=False)
+
+
+# ── Helper de validación de fecha ─────────────────────────────────────────────
+# FIX PRINCIPAL: función centralizada para parsear y validar fechas.
+# Antes, la fecha se pasaba como string crudo sin validar. Si el usuario
+# escribía un formato incorrecto (ej: "2024/01/15" en vez de "2024-01-15"),
+# asignar_membresia podía fallar silenciosamente o usar la fecha de hoy.
+
+def validar_fecha(fecha_str: str) -> str | None:
+    """
+    Valida y normaliza una fecha ingresada por el usuario.
+    Acepta formatos: YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY.
+    Retorna siempre en formato YYYY-MM-DD, o None si es inválida.
+    """
+    fecha_str = fecha_str.strip()
+    if not fecha_str:
+        return None  # Vacío → usar fecha de hoy (comportamiento por defecto)
+
+    formatos = ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"]
+    for fmt in formatos:
+        try:
+            dt = datetime.strptime(fecha_str, fmt)
+            return dt.strftime("%Y-%m-%d")  # Siempre devuelve YYYY-MM-DD
+        except ValueError:
+            continue
+
+    return False  # Formato no reconocido → error a mostrar al usuario
 
 
 # ── Ventana principal ─────────────────────────────────────────────────────────
@@ -292,10 +320,22 @@ def abrir_ventana_suscripciones(parent):
                 lbl_error.configure(text="ID debe ser entero, precio y pagado deben ser numeros.")
                 return
 
-            if val_fecha == "":
-                asignar_membresia(cliente, membresia, precio, pagado)
-            else:
-                asignar_membresia(cliente, membresia, precio, pagado, val_fecha)
+            # FIX POPUP: validar y normalizar la fecha antes de pasarla.
+            # Antes: se pasaba el string crudo directamente, sin verificar
+            # si el formato era correcto ni si era realmente una fecha válida.
+            fecha_validada = validar_fecha(val_fecha)
+            if fecha_validada is False:
+                lbl_error.configure(
+                    text="Formato de fecha inválido. Usa YYYY-MM-DD, DD/MM/YYYY o DD-MM-YYYY."
+                )
+                return
+
+            # FIX POPUP: siempre se pasa fecha_inicio explícitamente.
+            # Antes: se bifurcaba en dos llamadas (con/sin fecha), lo que
+            # provocaba que registros con fecha vacía usaran date.today()
+            # internamente, pero registros con fecha antigua a veces fallaban
+            # si asignar_membresia no manejaba bien el parámetro posicional.
+            asignar_membresia(cliente, membresia, precio, pagado, fecha_validada)
 
             recargar_tabla()
             cargar_grafico_ingresos()
@@ -390,11 +430,25 @@ def abrir_ventana_suscripciones(parent):
             traer_al_frente()
             return
 
-        fecha = entry_fecha.get().strip()
-        if fecha == "":
-            asignar_membresia(cliente, membresia, precio, pagado)
-        else:
-            asignar_membresia(cliente, membresia, precio, pagado, fecha)
+        # FIX FORMULARIO FIJO: igual que en el popup, validar y normalizar
+        # la fecha antes de pasarla a asignar_membresia.
+        val_fecha_raw = entry_fecha.get().strip()
+        fecha_validada = validar_fecha(val_fecha_raw)
+        if fecha_validada is False:
+            messagebox.showerror(
+                "Error",
+                "Formato de fecha inválido.\nUsa YYYY-MM-DD, DD/MM/YYYY o DD-MM-YYYY.",
+                parent=ventana
+            )
+            traer_al_frente()
+            return
+
+        # FIX FORMULARIO FIJO: siempre se llama con fecha_inicio explícita.
+        # None indica "usar hoy", string válido indica fecha personalizada.
+        # Antes: se bifurcaba en dos llamadas distintas según si había fecha,
+        # lo que era frágil. Ahora asignar_membresia recibe siempre el mismo
+        # número de argumentos y decide internamente qué hacer con None.
+        asignar_membresia(cliente, membresia, precio, pagado, fecha_validada)
 
         for e in entries:
             e.delete(0, ctk.END)

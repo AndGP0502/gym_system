@@ -12,12 +12,14 @@ def _con():
 
 
 # -------- ASIGNAR MEMBRESIA A CLIENTE --------
+
 def asignar_membresia(cliente_id, membresia_id, precio_total, pagado, fecha_inicio=None):
-
-    def asignar_membresia(cliente_id, membresia_id, precio_total, pagado, fecha_inicio=None):
-        print(f"DEBUG DB_PATH: {DB_PATH}")
-        print(f"DEBUG params: {cliente_id}, {membresia_id}, {precio_total}, {pagado}")
-
+    """
+    Asigna una membresía a un cliente.
+    fecha_inicio puede ser:
+      - None  → se usa datetime.now() automáticamente
+      - str   → fecha en formato YYYY-MM-DD, DD/MM/YYYY o DD-MM-YYYY
+    """
     con = _con()
     cur = con.cursor()
 
@@ -50,10 +52,10 @@ def asignar_membresia(cliente_id, membresia_id, precio_total, pagado, fecha_inic
             con.close()
             print(f"Formato de fecha invalido: '{fecha_inicio}'. Use YYYY-MM-DD o DD/MM/YYYY")
             return
-        
-    fecha_inicio_str    = fecha_inicio_dt.strftime("%Y-%m-%d")
-    fecha_vencimiento   = (fecha_inicio_dt + timedelta(days=duracion)).strftime("%Y-%m-%d")
-    pendiente           = max(0, precio_total - pagado)
+
+    fecha_inicio_str  = fecha_inicio_dt.strftime("%Y-%m-%d")
+    fecha_vencimiento = (fecha_inicio_dt + timedelta(days=duracion)).strftime("%Y-%m-%d")
+    pendiente         = max(0, precio_total - pagado)
 
     cur.execute("""
         INSERT INTO suscripciones(

@@ -224,8 +224,8 @@ def abrir_ventana_pagos(parent):
     tabla_clientes.heading("ID", text="ID")
     tabla_clientes.heading("Nombre", text="Nombre")
 
-    tabla_clientes.column("ID", width=100, anchor=CENTER)
-    tabla_clientes.column("Nombre", width=260, anchor=W)
+    tabla_clientes.column("ID", width=100, anchor="center")
+    tabla_clientes.column("Nombre", width=260, anchor="center")
 
     tabla_clientes.pack(side=LEFT, fill=BOTH, expand=YES)
 
@@ -262,9 +262,10 @@ def abrir_ventana_pagos(parent):
     tabla_sus.heading("Cliente", text="Cliente")
     tabla_sus.heading("Plan", text="Plan")
 
-    tabla_sus.column("ID", width=120, anchor=CENTER)
-    tabla_sus.column("Cliente", width=220, anchor=W)
-    tabla_sus.column("Plan", width=150, anchor=W)
+    
+    tabla_sus.column("ID",        anchor="center", width=50)
+    tabla_sus.column("Cliente",   anchor="center", width=180)
+    tabla_sus.column("Plan",      anchor="center", width=150)
 
     tabla_sus.pack(side=LEFT, fill=BOTH, expand=YES)
 
@@ -365,6 +366,17 @@ def abrir_ventana_pagos(parent):
 
     tabla.bind("<Enter>", activar_scroll_tabla)
     tabla.bind("<Leave>", restaurar_scroll_principal)
+
+    for col in columnas:
+        tabla.heading(col, text=col)
+
+    tabla.column("ID",        anchor="center", width=50)
+    tabla.column("Cliente",   anchor="center", width=180)
+    tabla.column("Plan",      anchor="center", width=150)
+    tabla.column("Pagado",    anchor="center", width=100)
+    tabla.column("Pendiente", anchor="center", width=100)
+    tabla.column("Inicio",    anchor="center", width=110)
+    tabla.column("Vence",     anchor="center", width=110)
 
     # ---------- PANEL INFERIOR ----------
     frame_inferior = ttk.Frame(contenedor)
