@@ -1,4 +1,5 @@
 import ttkbootstrap as ttk
+import webbrowser
 from ttkbootstrap.constants import *
 
 from ui.clientes_ui import abrir_ventana_clientes
@@ -22,6 +23,142 @@ def iniciar_ventana():
     ventana = ttk.Window(themename="darkly")
     ventana.title("Sistema de Gestión de Gimnasio")
     ventana.state("zoomed")
+
+    # ---------------- POPUP DE CONTACTO ----------------
+
+    def mostrar_contacto(event=None):
+        """Popup pequeño no invasivo con datos de los creadores."""
+        popup = ttk.Toplevel(ventana)
+        popup.title("Acerca de")
+        popup.geometry("340x280")
+        popup.resizable(False, False)
+
+        # Centrar el popup relativo a la ventana principal
+        ventana.update_idletasks()
+        x = ventana.winfo_x() + (ventana.winfo_width()  // 2) - 170
+        y = ventana.winfo_y() + (ventana.winfo_height() // 2) - 140
+        popup.geometry(f"+{x}+{y}")
+
+        popup.attributes("-topmost", True)
+        popup.after(200, lambda: popup.attributes("-topmost", False))
+        popup.lift()
+        popup.focus_force()
+
+        # --- Cabecera fija (título + separador, fuera del scroll) ---
+        frame_header = ttk.Frame(popup, padding=(20, 16, 20, 0))
+        frame_header.pack(fill="x")
+
+        ttk.Label(
+            frame_header,
+            text="Software de Control A&D",
+            font=("Segoe UI", 14, "bold"),
+            bootstyle="info"
+        ).pack()
+
+        ttk.Label(
+            frame_header,
+            text="Desarrollado por:",
+            font=("Segoe UI", 10),
+            foreground="gray"
+        ).pack(pady=(2, 8))
+
+        ttk.Separator(frame_header).pack(fill="x")
+
+        # --- Zona con barra de scroll (solo arrastre, sin rueda del mouse) ---
+        scroll_frame = ttk.Frame(popup)
+        scroll_frame.pack(fill="both", expand=True)
+
+        sb = ttk.Scrollbar(scroll_frame, orient="vertical")
+        sb.pack(side="right", fill="y")
+
+        canvas_popup = ttk.Canvas(scroll_frame, highlightthickness=0, height=150,
+                                  yscrollcommand=sb.set)
+        canvas_popup.pack(side="left", fill="both", expand=True)
+        sb.configure(command=canvas_popup.yview)
+
+        inner = ttk.Frame(canvas_popup, padding=(20, 10, 20, 10))
+        win_id = canvas_popup.create_window((0, 0), window=inner, anchor="nw")
+
+        def _ajustar(event):
+            canvas_popup.configure(scrollregion=canvas_popup.bbox("all"))
+            canvas_popup.itemconfig(win_id, width=canvas_popup.winfo_width())
+
+        inner.bind("<Configure>", _ajustar)
+
+        # ── Aquí van tus datos ────────────────────────────────────────────
+        # Cada entrada: (nombre, correo, teléfono, red_social, url)
+        # Si no tienes red social en alguno, pon ("", "")
+        contactos = [
+            (
+                "👤 André Garzón",
+                "",
+                "+593 983760090",
+                "Facebook",
+                "https://www.facebook.com/",
+            ),
+            (
+                "👤 Dennys Chanchicocha",
+                "",
+                "+593 980844726",
+                "Facebook",
+                "https://www.facebook.com/share/186cb5uQdG/",
+            ),
+        ]
+        # ─────────────────────────────────────────────────────────────────
+
+        def _abrir_link(url):
+            # Intenta abrir con Chrome; si no está instalado usa el navegador predeterminado
+            rutas_chrome = [
+                "C:/Program Files/Google/Chrome/Application/chrome.exe %s",          # Windows 64-bit
+                "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s",    # Windows 32-bit
+            ]
+            abierto = False
+            for ruta in rutas_chrome:
+                try:
+                    webbrowser.get(ruta).open_new_tab(url)
+                    abierto = True
+                    break
+                except webbrowser.Error:
+                    continue
+            if not abierto:
+                webbrowser.open_new_tab(url)  # Fallback al navegador predeterminado
+
+        for nombre, correo, telefono, red_label, red_url in contactos:
+            ttk.Label(inner, text=nombre,
+                      font=("Segoe UI", 11, "bold")).pack(anchor="w")
+            ttk.Label(inner, text=f"  ✉  {correo}",
+                      font=("Segoe UI", 10), foreground="gray").pack(anchor="w")
+            ttk.Label(inner, text=f"  📞 {telefono}",
+                      font=("Segoe UI", 10), foreground="gray").pack(anchor="w")
+
+            if red_label and red_url:
+                # Label que actúa como hipervínculo
+                lbl_link = ttk.Label(
+                    inner,
+                    text=f"  🔗 {red_label}",
+                    font=("Segoe UI", 10, "underline"),
+                    foreground="#4DA6FF",   # azul clickeable
+                    cursor="hand2"          # cursor de manito
+                )
+                lbl_link.pack(anchor="w", pady=(0, 10))
+                # Captura url en el closure con argumento por defecto
+                lbl_link.bind("<Button-1>", lambda e, u=red_url: _abrir_link(u))
+            else:
+                ttk.Label(inner, text="").pack(pady=(0, 4))
+
+        # --- Botón cerrar fijo abajo ---
+        frame_footer = ttk.Frame(popup, padding=(20, 8, 20, 14))
+        frame_footer.pack(fill="x")
+
+        ttk.Separator(frame_footer).pack(fill="x", pady=(0, 10))
+
+        ttk.Button(
+            frame_footer,
+            text="Cerrar",
+            bootstyle="secondary-outline",
+            width=12,
+            command=popup.destroy
+        ).pack()
 
     # ---------------- FUNCIONES ----------------
 
@@ -67,11 +204,15 @@ def iniciar_ventana():
     sidebar = ttk.Frame(contenedor, padding=30)
     sidebar.grid(row=0, column=0, sticky="ns")
 
-    ttk.Label(
+    # FIX: se agrega cursor="hand2" y bind a mostrar_contacto
+    lbl_titulo = ttk.Label(
         sidebar,
         text="Software de Control A&D",
-        font=("Segoe UI", 16, "bold")
-    ).pack(pady=(0, 25))
+        font=("Segoe UI", 16, "bold"),
+        cursor="hand2"          # ← el cursor cambia a manito al pasar encima
+    )
+    lbl_titulo.pack(pady=(0, 25))
+    lbl_titulo.bind("<Button-1>", mostrar_contacto)   # ← abre el popup al hacer click
 
     boton_style = {"width": 22, "padding": 10}
 
@@ -109,10 +250,9 @@ def iniciar_ventana():
 
     ttk.Separator(sidebar).pack(fill="x", pady=20)
 
-    #----BOTÓN PARA IMPORTAR EXCEL------
     ttk.Button(
-    sidebar, text="📥 Importar Excel", bootstyle="info",
-    command=lambda: abrir_ventana_importar(ventana), **boton_style
+        sidebar, text="📥 Importar Excel", bootstyle="info",
+        command=lambda: abrir_ventana_importar(ventana), **boton_style
     ).pack(pady=6)
 
     ttk.Separator(sidebar).pack(fill="x", pady=20)
@@ -179,17 +319,15 @@ def iniciar_ventana():
     ).pack(side="right", padx=5)
 
     # ---------------- CARDS ----------------
-    # Usamos pack + Frame de fila para que las 4 cards siempre quepan
 
     fila_cards = ttk.Frame(area)
     fila_cards.pack(fill="x", pady=(0, 30))
 
-    # Las 4 columnas se expanden igual
     for i in range(4):
         fila_cards.columnconfigure(i, weight=1, uniform="card")
 
     def crear_card(parent, icono, titulo, valor, col):
-        frame = ttk.Frame(parent, padding=25,)
+        frame = ttk.Frame(parent, padding=25)
         frame.grid(row=0, column=col, padx=12, pady=10, sticky="nsew")
 
         ttk.Label(frame, text=icono, font=("Segoe UI", 28)).pack(pady=(0, 6))
@@ -202,10 +340,10 @@ def iniciar_ventana():
         numero.pack(pady=(8, 0))
         return frame, numero
 
-    _, numero_clientes   = crear_card(fila_cards, "👥", "Clientes Registrados",   str(contar_clientes()),              0)
-    _, numero_membresias = crear_card(fila_cards, "🏷", "Membresías Activas",     str(contar_membresias()),            1)
+    _, numero_clientes   = crear_card(fila_cards, "👥", "Clientes Registrados",   str(contar_clientes()),               0)
+    _, numero_membresias = crear_card(fila_cards, "🏷", "Membresías Activas",     str(contar_membresias()),             1)
     _, numero_vencidas   = crear_card(fila_cards, "⚠️",  "Suscripciones Vencidas", str(contar_suscripciones_vencidas()), 2)
-    _, numero_activos    = crear_card(fila_cards, "🔥", "Clientes Activos",        str(contar_clientes_activos()),      3)
+    _, numero_activos    = crear_card(fila_cards, "🔥", "Clientes Activos",        str(contar_clientes_activos()),       3)
 
     # ---------------- CONTENIDO INFERIOR ----------------
 
@@ -214,7 +352,7 @@ def iniciar_ventana():
     contenido_inferior.columnconfigure(0, weight=1)
     contenido_inferior.columnconfigure(1, weight=1)
 
-    # ---- Logo del gimnasio (izquierda arriba) ----
+    # ---- Logo del gimnasio ----
     ruta_gym = os.path.join("assets", "gym.jpg")
     if os.path.exists(ruta_gym):
         imagen = Image.open(ruta_gym).resize((450, 260), Image.LANCZOS)
@@ -227,7 +365,7 @@ def iniciar_ventana():
         label_gym.image = img_gym
         label_gym.pack()
 
-   # ---- Actividad reciente (izquierda abajo) ----
+    # ---- Actividad reciente ----
     actividad = ttk.Frame(contenido_inferior, padding=30)
     actividad.grid(row=1, column=0, sticky="nw", padx=(0, 10), pady=10)
 
@@ -240,13 +378,13 @@ def iniciar_ventana():
         "✅ Membresías cargadas",
         "✅ Base de datos conectada",
     ]:
-        
         ttk.Label(actividad, text=item, font=("Segoe UI", 11)).pack(anchor="w", pady=5)
 
-    # ---- Gráfica PIE (derecha, ocupa ambas filas) ----
+    # ---- Gráfica PIE ----
     frame_grafica = ttk.Frame(contenido_inferior, padding=20, bootstyle="secondary")
     frame_grafica.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(10, 0), pady=10)
 
     grafica_clientes(frame_grafica)
+
     # ---------------- LOOP ----------------
     ventana.mainloop()
