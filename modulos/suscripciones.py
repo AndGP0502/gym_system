@@ -5,8 +5,8 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "..", "gym.db")
 
-conexion = sqlite3.connect(DB_PATH)
-
+def obtener_conexion():
+    return sqlite3.connect(DB_PATH)
 
 # -------- ASIGNAR MEMBRESIA A CLIENTE --------
 def asignar_membresia(cliente_id, membresia_id, precio_total, pagado):
@@ -375,3 +375,26 @@ def contar_clientes_activos():
     conexion.close()
 
     return total
+
+# -------- INGRESOS POR MES PARA EL GRAFICO --------
+def ingresos_por_mes():
+
+    conexion = obtener_conexion()
+    cursor = conexion.cursor()
+
+    anio_actual = datetime.now().strftime("%Y")
+
+    cursor.execute("""
+        SELECT strftime('%m', fecha_inicio) AS mes,
+               COALESCE(SUM(pagado), 0) AS total
+        FROM suscripciones
+        WHERE strftime('%Y', fecha_inicio) = ?
+        GROUP BY strftime('%m', fecha_inicio)
+        ORDER BY strftime('%m', fecha_inicio)
+    """, (anio_actual,))
+
+    datos = cursor.fetchall()
+
+    conexion.close()
+
+    return datos
