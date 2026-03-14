@@ -148,7 +148,7 @@ def iniciar_ventana():
         
         imagen_logo = Image.open(ruta_logo)
         
-        imagen_logo = imagen_logo.resize((160, 80))
+        imagen_logo = imagen_logo.resize((300, 300))
         
         logo = ImageTk.PhotoImage(imagen_logo)
         
@@ -158,8 +158,41 @@ def iniciar_ventana():
 
 # ---------------- AREA PRINCIPAL ----------------
 
-    area = ttk.Frame(contenedor, padding=(60,40))
+    area = ttk.Frame(contenedor)
     area.grid(row=0, column=1, sticky="nsew")
+    
+    contenedor_scroll = ttk.Frame(contenedor)
+    contenedor_scroll.grid(row=0, column=1, sticky="nsew")
+    
+    contenedor_scroll.rowconfigure(0, weight=1)
+    contenedor_scroll.columnconfigure(0, weight=1)
+
+    canvas = ttk.Canvas(contenedor_scroll)
+    canvas.grid(row=0, column=0, sticky="nsew")
+    
+    scrollbar = ttk.Scrollbar(contenedor_scroll, orient="vertical", command=canvas.yview)
+    scrollbar.grid(row=0, column=1, sticky="ns")
+    
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+# frame interno
+    area = ttk.Frame(canvas, padding=(60,40))
+
+    canvas.create_window((0,0), window=area, anchor="nw")
+
+    def actualizar_scroll(event):
+        
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        
+    area.bind("<Configure>", actualizar_scroll)
+
+#Para scrollear con la rueda del mouse    
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+
 
 # ---------------- HEADER ----------------
 
