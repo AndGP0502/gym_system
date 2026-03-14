@@ -16,26 +16,49 @@ def abrir_ventana_membresias(parent):
     ventana.title("Membresías")
     ventana.geometry("1000x700")
     ventana.resizable(True, True)
+    ventana.overrideredirect(False)
+    ventana.state("normal")
 
-    ventana.lift()
-    ventana.attributes("-topmost", True)
-    ventana.after(200, lambda: ventana.attributes("-topmost", False))
-    ventana.focus_force()
+    ventana.after(100, lambda: ventana.lift())
+    ventana.after(150, lambda: ventana.focus_force())
+    ventana.after(200, lambda: ventana.attributes("-topmost", True))
+    ventana.after(500, lambda: ventana.attributes("-topmost", False))
 
-    # ---------- SCROLL PRINCIPAL ----------
-    scroll = ctk.CTkScrollableFrame(ventana)
-    scroll.pack(fill="both", expand=True)
+    # ---------- HEADER ----------
+    header = ctk.CTkFrame(ventana, height=70)
+    header.pack(fill="x", padx=20, pady=(15,10))
 
-    # ---------- BOTON REGRESAR INDEPENDIENTE ----------
+    # titulo grande
+    titulo = ctk.CTkLabel(
+        header,
+        text="Membresías del Gimnasio",
+        font=("Segoe UI", 28, "bold")
+    )
+    titulo.pack(side="left", padx=(20,10))
+
+    # descripcion
+    descripcion = ctk.CTkLabel(
+        header,
+        text="Administra, edita y elimina los planes disponibles del gimnasio",
+        font=("Segoe UI", 15),
+        text_color="gray70"
+    )
+    descripcion.pack(side="left")
+
+    # boton volver
     boton_regresar = ctk.CTkButton(
-        ventana,
+        header,
         text="← Volver al menú",
         width=170,
         height=35,
         font=("Segoe UI", 14),
         command=ventana.destroy
-    )
-    boton_regresar.place(relx=0.97, y=30, anchor="ne")
+    ) 
+    boton_regresar.pack(side="right", padx=20)
+
+    # ---------- SCROLL PRINCIPAL ----------
+    scroll = ctk.CTkScrollableFrame(ventana)
+    scroll.pack(fill="both", expand=True)
 
     # ---------- CONTENEDOR FORMULARIO ----------
     frame_contenedor = ctk.CTkFrame(scroll, fg_color="transparent")
