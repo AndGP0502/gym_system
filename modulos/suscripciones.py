@@ -9,7 +9,8 @@ def obtener_conexion():
     return sqlite3.connect(DB_PATH)
 
 # -------- ASIGNAR MEMBRESIA A CLIENTE --------
-def asignar_membresia(cliente_id, membresia_id, precio_total, pagado):
+
+def asignar_membresia(cliente_id, membresia_id, precio_total, pagado, fecha_inicio=None):
 
     conexion = sqlite3.connect("gym.db")
     cursor = conexion.cursor()
@@ -28,7 +29,18 @@ def asignar_membresia(cliente_id, membresia_id, precio_total, pagado):
         conexion.close()
         return
 
-    fecha_inicio = datetime.now().strftime("%Y-%m-%d")
+    # usar fecha actual si no se proporciona una
+    if fecha_inicio is None:
+        fecha_inicio_dt = datetime.now()
+    else:
+        try:
+            fecha_inicio_dt = datetime.strptime(fecha_inicio, "%Y-%m-%d")
+        except ValueError:
+            print("Formato de fecha inválido. Use YYYY-MM-DD")
+            conexion.close()
+            return
+
+    fecha_inicio = fecha_inicio_dt.strftime("%Y-%m-%d")
 
     cursor.execute("SELECT duracion_dias FROM membresias WHERE id = ?", (membresia_id,))
     resultado = cursor.fetchone()
@@ -40,7 +52,7 @@ def asignar_membresia(cliente_id, membresia_id, precio_total, pagado):
 
     duracion = resultado[0]
 
-    fecha_vencimiento = (datetime.now() + timedelta(days=duracion)).strftime("%Y-%m-%d")
+    fecha_vencimiento = (fecha_inicio_dt + timedelta(days=duracion)).strftime("%Y-%m-%d")
 
     pendiente = max(0, precio_total - pagado)
 

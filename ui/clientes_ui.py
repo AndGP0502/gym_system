@@ -7,9 +7,13 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from modulos.clientes import agregar_cliente, ver_clientes, eliminar_cliente, editar_cliente
-
+from modulos.alertas import enviar_recordatorio_manual
+from datetime import timedelta
 
 def abrir_ventana_clientes(parent):
+
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("dark-blue")
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Gestión de Clientes")
     ventana.state("zoomed")
@@ -47,6 +51,7 @@ def abrir_ventana_clientes(parent):
     )
     subtitulo.pack(side="left", padx=(0, 10), pady=20)
 
+    
     boton_regresar = ctk.CTkButton(
         frame_header,
         text="← Volver al menú",
@@ -223,11 +228,11 @@ def abrir_ventana_clientes(parent):
     label_buscar.pack(side="right", padx=(10, 5), pady=15)
 
     # -------- ESTILO TABLA --------
+    
     style = ttk.Style()
-    style.theme_use("default")
 
     style.configure(
-        "Treeview",
+        "Clientes.Treeview",
         background="#3a3a3a",
         foreground="white",
         fieldbackground="#3a3a3a",
@@ -267,6 +272,7 @@ def abrir_ventana_clientes(parent):
 
     tabla = ttk.Treeview(
         tabla_container,
+        style="Clientes.Treeview",
         columns=columnas,
         show="headings",
         height=14,
@@ -292,6 +298,7 @@ def abrir_ventana_clientes(parent):
     scrollbar_y.pack(side="right", fill="y")
 
     # -------- VARIABLE CLIENTE SELECCIONADO --------
+
     cliente_seleccionado = None
 
     # -------- FUNCIONES DE ESTADISTICAS Y GRAFICO --------
@@ -328,6 +335,40 @@ def abrir_ventana_clientes(parent):
 
         canvas.draw()
 
+    #------FUNCION ALERTA PARA CLIENTES-------
+    def renovar_suscripcion():
+        
+        item = tabla.selection()
+
+        if not item:
+            messagebox.showwarning("Advertencia", "Seleccione un cliente")
+            return
+        
+        valores = tabla.item(item[0], "values")
+        
+        cliente_id = int(valores[0])
+        fecha = valores[4]
+        
+        try:
+            fecha_obj = datetime.strptime(fecha, "%d/%m/%Y")
+        except:
+            messagebox.showerror("Error", "Fecha inválida")
+            return
+        
+        nueva_fecha = fecha_obj + timedelta(days=30)
+        
+        editar_cliente(
+            cliente_id,
+            valores[1],
+            valores[2],
+            valores[3],
+            nueva_fecha.strftime("%d/%m/%Y")
+        )
+
+        messagebox.showinfo("Éxito", "Suscripción renovada +30 días")
+
+        cargar_clientes()
+
     def actualizar_tarjetas(clientes):
         total = len(clientes)
         hoy = datetime.now().strftime("%d/%m/%Y")
@@ -344,6 +385,25 @@ def abrir_ventana_clientes(parent):
         numero_activos.configure(text=str(total))
         numero_hoy.configure(text=str(nuevos_hoy))
         label_total.configure(text=f"Total de clientes: {total}")
+
+    #-------FUNCIÓN PARA ENVIAR MESJ DE WPP MANUAL-------
+    def enviar_whatsapp_manual():
+        
+        item = tabla.selection()
+
+        if not item:
+            messagebox.showwarning("Advertencia", "Seleccione un cliente")
+            return
+        
+        valores = tabla.item(item[0], "values")
+        
+        
+        nombre = valores[1]
+        telefono = valores[3]
+        
+        enviar_recordatorio_manual(nombre, telefono)
+
+        messagebox.showinfo("WhatsApp", "Mensaje enviado")
 
     # -------- MOSTRAR EN TABLA --------
     def mostrar_en_tabla(clientes):
@@ -512,6 +572,33 @@ def abrir_ventana_clientes(parent):
     frame_botones = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
     frame_botones.pack(fill="x", padx=10, pady=(10, 20))
 
+     # -------- FRAME BOTONES CON SCROLL --------
+    contenedor_botones = ctk.CTkFrame(scroll)
+    contenedor_botones.pack(fill="x", padx=10, pady=(10, 20))
+    
+    canvas_botones = ctk.CTkCanvas(contenedor_botones, height=90, highlightthickness=0)
+    canvas_botones.pack(side="top", fill="x", expand=True)
+
+    scrollbar_botones = ctk.CTkScrollbar(
+        contenedor_botones,
+        orientation="horizontal",
+        command=canvas_botones.xview
+    )
+    scrollbar_botones.pack(side="bottom", fill="x")
+
+    canvas_botones.configure(xscrollcommand=scrollbar_botones.set)
+    
+    frame_botones = ctk.CTkFrame(canvas_botones, fg_color="#343434", corner_radius=18)
+    
+    canvas_botones.create_window((0, 0), window=frame_botones, anchor="nw")
+
+    def ajustar_scroll(event):
+        
+        canvas_botones.configure(scrollregion=canvas_botones.bbox("all"))
+
+    frame_botones.bind("<Configure>", ajustar_scroll)
+
+
     boton_agregar = ctk.CTkButton(
         frame_botones,
         text="Agregar Cliente",
@@ -577,6 +664,34 @@ def abrir_ventana_clientes(parent):
         command=eliminar
     )
     boton_eliminar.grid(row=0, column=4, padx=15, pady=20)
+
+    boton_renovar = ctk.CTkButton(
+        frame_botones,
+        text="Renovar +30 días",
+        width=170,
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#20c997",
+        hover_color="#17a589",
+        command=renovar_suscripcion
+    )
+    boton_renovar.grid(row=0, column=5, padx=15, pady=20)
+    
+
+    boton_enviar = ctk.CTkButton(
+        frame_botones,
+        text="Enviar alerta",
+        width=170,
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#20c997",
+        hover_color="#17a589",
+        command=enviar_whatsapp_manual
+    )
+    boton_enviar.grid(row=0, column=6, padx=15, pady=20)
+  
 
     # -------- CARGAR DATOS --------
     cargar_clientes()

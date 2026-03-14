@@ -11,8 +11,6 @@ from modulos.membresias import contar_membresias
 from modulos.suscripciones import contar_suscripciones_vencidas, contar_clientes_activos
 from modulos.backup_db import crear_backup, restaurar_backup
 from modulos.graficas import grafica_clientes
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from tkinter import messagebox
 from PIL import Image, ImageTk
@@ -25,7 +23,7 @@ def iniciar_ventana():
     ventana.title("Sistema de Gestión de Gimnasio")
     ventana.state("zoomed")
 
-# ---------------- FUNCIONES ----------------
+    # ---------------- FUNCIONES ----------------
 
     def actualizar_dashboard():
         numero_clientes.config(text=str(contar_clientes()))
@@ -33,11 +31,9 @@ def iniciar_ventana():
         numero_vencidas.config(text=str(contar_suscripciones_vencidas()))
         numero_activos.config(text=str(contar_clientes_activos()))
 
-        # limpiar gráfica anterior
         for widget in frame_grafica.winfo_children():
             widget.destroy()
 
-        # volver a dibujar la grafica
         grafica_clientes(frame_grafica)
 
     def hacer_backup():
@@ -48,315 +44,206 @@ def iniciar_ventana():
             messagebox.showerror("Error", f"No se pudo crear el backup:\n{e}")
 
     def hacer_restauracion():
-
         try:
             archivo = restaurar_backup()
-
             if archivo:
                 messagebox.showinfo(
                     "Backup restaurado",
                     "Base restaurada correctamente.\nReinicia el sistema."
                 )
                 ventana.destroy()
-
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo restaurar:\n{e}")
 
-# ---------------- LAYOUT PRINCIPAL ----------------
+    # ---------------- LAYOUT PRINCIPAL ----------------
 
     contenedor = ttk.Frame(ventana)
     contenedor.pack(fill="both", expand=True)
-
     contenedor.columnconfigure(1, weight=1)
+    contenedor.rowconfigure(0, weight=1)
 
-# ---------------- SIDEBAR ----------------
+    # ---------------- SIDEBAR ----------------
 
     sidebar = ttk.Frame(contenedor, padding=30)
     sidebar.grid(row=0, column=0, sticky="ns")
 
     ttk.Label(
         sidebar,
-        text="Panel de Control",
-        font=("Segoe UI", 20, "bold")
-    ).pack(pady=(0,25))
+        text="Software de Control A&D",
+        font=("Segoe UI", 16, "bold")
+    ).pack(pady=(0, 25))
 
-    boton_style = {"width":22, "padding":10}
+    boton_style = {"width": 22, "padding": 10}
 
     ttk.Button(
-        sidebar,
-        text="👥 Clientes",
-        bootstyle="primary-outline",
-        command=lambda: abrir_ventana_clientes(ventana),
-        **boton_style
+        sidebar, text="👥 Clientes", bootstyle="primary-outline",
+        command=lambda: abrir_ventana_clientes(ventana), **boton_style
     ).pack(pady=6)
 
     ttk.Button(
-        sidebar,
-        text="🏷 Membresías",
-        bootstyle="primary-outline",
-        command=lambda: abrir_ventana_membresias(ventana),
-        **boton_style
+        sidebar, text="🏷 Membresías", bootstyle="primary-outline",
+        command=lambda: abrir_ventana_membresias(ventana), **boton_style
     ).pack(pady=6)
 
     ttk.Button(
-        sidebar,
-        text="📋 Suscripciones",
-        bootstyle="primary-outline",
-        command=lambda: abrir_ventana_suscripciones(ventana),
-        **boton_style
+        sidebar, text="📋 Suscripciones", bootstyle="primary-outline",
+        command=lambda: abrir_ventana_suscripciones(ventana), **boton_style
     ).pack(pady=6)
 
     ttk.Button(
-        sidebar,
-        text="💳 Pagos",
-        bootstyle="primary-outline",
-        command=lambda: abrir_ventana_pagos(ventana),
-        **boton_style
+        sidebar, text="💳 Pagos", bootstyle="primary-outline",
+        command=lambda: abrir_ventana_pagos(ventana), **boton_style
     ).pack(pady=6)
 
     ttk.Separator(sidebar).pack(fill="x", pady=20)
 
     ttk.Button(
-        sidebar,
-        text="💾 Crear Backup",
-        bootstyle="success",
-        command=hacer_backup,
-        **boton_style
+        sidebar, text="💾 Crear Backup", bootstyle="success",
+        command=hacer_backup, **boton_style
     ).pack(pady=6)
 
     ttk.Button(
-        sidebar,
-        text="♻ Restaurar Backup",
-        bootstyle="warning",
-        command=hacer_restauracion,
-        **boton_style
+        sidebar, text="♻ Restaurar Backup", bootstyle="warning",
+        command=hacer_restauracion, **boton_style
     ).pack(pady=6)
 
     ttk.Separator(sidebar).pack(fill="x", pady=20)
 
     ttk.Button(
-        sidebar,
-        text="❌ Salir",
-        command=ventana.destroy,
-        **boton_style
+        sidebar, text="❌ Salir",
+        command=ventana.destroy, **boton_style
     ).pack(pady=6)
 
-    # ---------- LOGO DEL GYM ABAJO DEL PANEL ----------
+    # Logo del gym
     ruta_logo = os.path.join("assets", "logo_gym.jpg")
-    
     if os.path.exists(ruta_logo):
-        
-        imagen_logo = Image.open(ruta_logo)
-        
-        imagen_logo = imagen_logo.resize((300, 300))
-        
+        imagen_logo = Image.open(ruta_logo).resize((200, 200))
         logo = ImageTk.PhotoImage(imagen_logo)
-        
         label_logo = ttk.Label(sidebar, image=logo)
         label_logo.image = logo
-        label_logo.pack(pady=(40, 10))
+        label_logo.pack(pady=(30, 10))
 
-# ---------------- AREA PRINCIPAL ----------------
+    # ---------------- ÁREA PRINCIPAL CON SCROLL ----------------
 
-    area = ttk.Frame(contenedor)
-    area.grid(row=0, column=1, sticky="nsew")
-    
     contenedor_scroll = ttk.Frame(contenedor)
     contenedor_scroll.grid(row=0, column=1, sticky="nsew")
-    
     contenedor_scroll.rowconfigure(0, weight=1)
     contenedor_scroll.columnconfigure(0, weight=1)
 
     canvas = ttk.Canvas(contenedor_scroll)
     canvas.grid(row=0, column=0, sticky="nsew")
-    
+
     scrollbar = ttk.Scrollbar(contenedor_scroll, orient="vertical", command=canvas.yview)
     scrollbar.grid(row=0, column=1, sticky="ns")
-    
     canvas.configure(yscrollcommand=scrollbar.set)
 
-# frame interno
-    area = ttk.Frame(canvas, padding=(60,40))
-
-    canvas.create_window((0,0), window=area, anchor="nw")
+    area = ttk.Frame(canvas, padding=(40, 30))
+    canvas.create_window((0, 0), window=area, anchor="nw")
 
     def actualizar_scroll(event):
-        
         canvas.configure(scrollregion=canvas.bbox("all"))
-        
+
     area.bind("<Configure>", actualizar_scroll)
 
-#Para scrollear con la rueda del mouse    
     def _on_mousewheel(event):
-        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
     canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
-
-
-# ---------------- HEADER ----------------
+    # ---------------- HEADER ----------------
 
     header = ttk.Frame(area)
-    header.pack(fill="x", pady=(0,30))
+    header.pack(fill="x", pady=(0, 20))
 
     ttk.Label(
         header,
         text="Dashboard del Gimnasio",
-        font=("Segoe UI",34,"bold"),
+        font=("Segoe UI", 28, "bold"),
     ).pack(side="left")
 
     ttk.Button(
-        header,
-        text="Actualizar",
-        bootstyle="info",
-        command=actualizar_dashboard
-    ).pack(side="right")
+        header, text="🔄 Actualizar",
+        bootstyle="info", command=actualizar_dashboard
+    ).pack(side="right", padx=5)
 
-# ---------------- DASHBOARD CARDS ----------------
+    # ---------------- CARDS ----------------
+    # Usamos pack + Frame de fila para que las 4 cards siempre quepan
 
-    dashboard = ttk.Frame(area)
-    dashboard.pack(expand=True)
+    fila_cards = ttk.Frame(area)
+    fila_cards.pack(fill="x", pady=(0, 30))
 
-    dashboard.columnconfigure((0,1,2,3), weight=1)
-    dashboard.rowconfigure(0, weight=1)
+    # Las 4 columnas se expanden igual
+    for i in range(4):
+        fila_cards.columnconfigure(i, weight=1, uniform="card")
 
-# -------- FUNCION CREAR TARJETAS --------
+    def crear_card(parent, icono, titulo, valor, col):
+        frame = ttk.Frame(parent, padding=25,)
+        frame.grid(row=0, column=col, padx=12, pady=10, sticky="nsew")
 
-    def crear_card(parent, icono, titulo, valor):
-
-        frame = ttk.Frame(
-            parent,
-            padding=35,
-            
-        )
-
-        frame.grid_propagate(False)
-
-        ttk.Label(
-            frame,
-            text=icono,
-            font=("Segoe UI",34)
-        ).pack(pady=(0,8))
-
-        ttk.Label(
-            frame,
-            text=titulo,
-            font=("Segoe UI",13)
-        ).pack()
-
+        ttk.Label(frame, text=icono, font=("Segoe UI", 28)).pack(pady=(0, 6))
+        ttk.Label(frame, text=titulo, font=("Segoe UI", 11)).pack()
         numero = ttk.Label(
-            frame,
-            text=valor,
-            font=("Segoe UI",42,"bold"),
+            frame, text=valor,
+            font=("Segoe UI", 36, "bold"),
             bootstyle="info"
         )
-        numero.pack(pady=(10,0))
-
+        numero.pack(pady=(8, 0))
         return frame, numero
 
-# -------- CARDS --------
+    _, numero_clientes   = crear_card(fila_cards, "👥", "Clientes Registrados",   str(contar_clientes()),              0)
+    _, numero_membresias = crear_card(fila_cards, "🏷", "Membresías Activas",     str(contar_membresias()),            1)
+    _, numero_vencidas   = crear_card(fila_cards, "⚠️",  "Suscripciones Vencidas", str(contar_suscripciones_vencidas()), 2)
+    _, numero_activos    = crear_card(fila_cards, "🔥", "Clientes Activos",        str(contar_clientes_activos()),      3)
 
-    card_clientes, numero_clientes = crear_card(
-        dashboard,"👥","Clientes Registrados",str(contar_clientes())
-    )
-    card_clientes.grid(row=0,column=0,padx=30,pady=60,sticky="nsew")
-
-    card_membresias, numero_membresias = crear_card(
-        dashboard,"🏷","Membresías Activas",str(contar_membresias())
-    )
-    card_membresias.grid(row=0,column=1,padx=30,pady=60,sticky="nsew")
-
-    card_vencidas, numero_vencidas = crear_card(
-        dashboard,"⚠","Suscripciones Vencidas",str(contar_suscripciones_vencidas())
-    )
-    card_vencidas.grid(row=0,column=2,padx=30,pady=60,sticky="nsew")
-
-
-# -------- CARD CLIENTES ACTIVOS --------
-
-    card_activos, numero_activos = crear_card(
-        dashboard,
-        "🔥",
-        "Clientes Activos",
-        str(contar_clientes_activos())
-    )
-
-    card_activos.grid(row=0, column=3, padx=30, pady=60, sticky="nsew")
-
-# ---------------- ACTIVIDAD ----------------
+    # ---------------- CONTENIDO INFERIOR ----------------
 
     contenido_inferior = ttk.Frame(area)
-    contenido_inferior.pack(fill="both", expand=True, pady=30)
-
+    contenido_inferior.pack(fill="both", expand=True, pady=10)
     contenido_inferior.columnconfigure(0, weight=1)
     contenido_inferior.columnconfigure(1, weight=1)
 
-    contenido_inferior.rowconfigure(0, weight=1)
-    contenido_inferior.rowconfigure(1, weight=1)
-
-    frame_grafica = ttk.Frame(
-    contenido_inferior,
-    padding=20,
-    bootstyle="secondary"
-    )
-    
-    frame_grafica.grid(row=0, column=1, sticky="n", padx=20)
-
-    grafica_clientes(frame_grafica)
-
-# -------- ACTIVIDAD --------
-
-    actividad = ttk.Frame(contenido_inferior, padding=30)
-    actividad.grid(row=0,column=0,rowspan=2, sticky="nw")
-
-    frame_grafica = ttk.Frame(
-    contenido_inferior,
-    padding=20,
-    bootstyle="secondary"
-    )
-    frame_grafica.grid(row=0, column=1, sticky="n", padx=20, pady=10)
-    
-    grafica_clientes(frame_grafica)
+    # ---- Actividad reciente (izquierda) ----
+    actividad = ttk.Frame(contenido_inferior, padding=30,)
+    actividad.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=10)
 
     ttk.Label(
         actividad,
         text="Actividad reciente",
-        font=("Segoe UI",18,"bold")
-    ).pack(anchor="w", pady=(0,20))
+        font=("Segoe UI", 16, "bold")
+    ).pack(anchor="w", pady=(0, 16))
 
-    ttk.Label(actividad,text="• Sistema iniciado").pack(anchor="w", pady=6)
-    ttk.Label(actividad,text="• Clientes registrados").pack(anchor="w", pady=6)
-    ttk.Label(actividad,text="• Membresías cargadas").pack(anchor="w", pady=6)
-    ttk.Label(actividad,text="• Base de datos conectada").pack(anchor="w", pady=6)
+    for item in [
+        "✅ Sistema iniciado",
+        "✅ Clientes registrados",
+        "✅ Membresías cargadas",
+        "✅ Base de datos conectada",
+    ]:
+        ttk.Label(actividad, text=item, font=("Segoe UI", 11)).pack(anchor="w", pady=5)
 
-# -------- FOTO DEL GIMNASIO --------
+    # ---- Gráfica (derecha) ----
+    frame_grafica = ttk.Frame(contenido_inferior, padding=20, bootstyle="secondary")
+    frame_grafica.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=10)
 
-    ruta_gym = os.path.join("assets","gym.jpg")
+    grafica_clientes(frame_grafica)
 
+    # ---- Foto del gimnasio (fila inferior, centrada) ----
+    ruta_gym = os.path.join("assets", "gym.jpg")
     if os.path.exists(ruta_gym):
-
-        imagen = Image.open(ruta_gym)
-        imagen = imagen.resize((450,260), Image.LANCZOS)
-
+        imagen = Image.open(ruta_gym).resize((450, 260), Image.LANCZOS)
         img_gym = ImageTk.PhotoImage(imagen)
 
-        frame_gym = ttk.Frame(
-            contenido_inferior,
-            padding=20,
-        )
-
-        frame_gym.grid(row=1,column=1,sticky="n",padx=20, pady=20)
+        frame_gym = ttk.Frame(area, padding=20)
+        frame_gym.pack(pady=20)
 
         ttk.Label(
             frame_gym,
             text="Nuestro Gimnasio",
-            font=("Segoe UI",16,"bold")
-        ).pack(pady=(0,10))
+            font=("Segoe UI", 14, "bold")
+        ).pack(pady=(0, 10))
 
-        label_gym = ttk.Label(frame_gym,image=img_gym)
+        label_gym = ttk.Label(frame_gym, image=img_gym)
         label_gym.image = img_gym
         label_gym.pack()
 
-# ---------------- LOOP ----------------
-
+    # ---------------- LOOP ----------------
     ventana.mainloop()

@@ -1,8 +1,10 @@
 import customtkinter as ctk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import sqlite3
+import os
 
 from modulos.suscripciones import (
     asignar_membresia,
@@ -15,6 +17,11 @@ from modulos.suscripciones import (
     ingresos_por_mes
 )
 
+CLAVE_EMERGENCIA = "12345"
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH  = os.path.join(BASE_DIR, "..", "gym.db")
+
 
 def abrir_ventana_suscripciones(parent):
 
@@ -25,443 +32,394 @@ def abrir_ventana_suscripciones(parent):
     ventana.lift()
     ventana.focus_force()
 
-    # ---------- SCROLL PRINCIPAL ----------
     scroll = ctk.CTkScrollableFrame(ventana)
     scroll.pack(fill="both", expand=True)
 
-    # ---------- TITULO ----------
-    titulo = ctk.CTkLabel(
-        scroll,
-        text="Ingresos mensuales",
-        font=("Segoe UI", 26, "bold")
-    )
-    titulo.pack(pady=(20, 10))
+    # ---------- HEADER ----------
+    frame_header = ctk.CTkFrame(scroll, corner_radius=18)
+    frame_header.pack(fill="x", padx=20, pady=(20, 10))
+
+    ctk.CTkLabel(
+        frame_header,
+        text="Gestion de Suscripciones",
+        font=("Segoe UI", 28, "bold")
+    ).pack(side="left", padx=20, pady=20)
+
+    ctk.CTkLabel(
+        frame_header,
+        text="Control de pagos, vencimientos e ingresos",
+        font=("Segoe UI", 14),
+        text_color="gray70"
+    ).pack(side="left")
+
+    ctk.CTkButton(
+        frame_header,
+        text="<- Volver al menu",
+        width=170, height=40,
+        font=("Segoe UI", 14, "bold"),
+        corner_radius=12,
+        fg_color="#2A2A2A",
+        hover_color="#3A3A3A",
+        command=ventana.destroy
+    ).pack(side="right", padx=20, pady=20)
 
     # ---------- GRAFICO ----------
-    frame_grafico = ctk.CTkFrame(scroll, height=250)
-    frame_grafico.pack(fill="x", padx=20, pady=(0, 20))
-    frame_grafico.pack_propagate(False)
+    frame_grafico = ctk.CTkFrame(scroll, corner_radius=18)
+    frame_grafico.pack(fill="x", padx=20, pady=(10, 20))
 
-    grafico_container = ctk.CTkFrame(frame_grafico)
-    grafico_container.pack(fill="both", expand=True, padx=10, pady=10)
-    grafico_container.pack_propagate(False)
+    ctk.CTkLabel(
+        frame_grafico,
+        text="Ingresos mensuales",
+        font=("Segoe UI", 20, "bold")
+    ).pack(anchor="w", padx=20, pady=(15, 5))
+
+    grafico_container = ctk.CTkFrame(frame_grafico, corner_radius=15)
+    grafico_container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
 
     def cargar_grafico_ingresos():
-
-        if not ventana.winfo_exists():
-            return
-
-        try:
-           for widget in grafico_container.winfo_children():
+        for widget in grafico_container.winfo_children():
             widget.destroy()
-        except:
-            return
 
-        datos = ingresos_por_mes()
-
-        meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
-                 "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-
+        datos    = ingresos_por_mes()
+        meses    = ["Ene","Feb","Mar","Abr","May","Jun",
+                    "Jul","Ago","Sep","Oct","Nov","Dic"]
         ingresos = [0] * 12
 
         for mes, total in datos:
-            if mes is not None and total is not None:
-                ingresos[int(mes) - 1] = float(total)
+            ingresos[int(mes) - 1] = float(total)
 
-        fig, ax = plt.subplots(figsize=(9, 2.4))
+        fig, ax = plt.subplots(figsize=(9, 2.5))
         fig.patch.set_facecolor("#2b2b2b")
         ax.set_facecolor("#2b2b2b")
-
         ax.plot(meses, ingresos, marker="o", linewidth=3, color="#00D1FF")
-
         ax.set_title("Ingresos por mes", color="white")
         ax.set_xlabel("Mes", color="white")
         ax.set_ylabel("Ingresos ($)", color="white")
-
         ax.tick_params(axis="x", colors="white")
         ax.tick_params(axis="y", colors="white")
-
         for spine in ax.spines.values():
             spine.set_color("white")
-
         ax.grid(True, alpha=0.3)
-
-        # ---------- TOOLTIP ----------
-        anotacion = ax.annotate(
-            "",
-            xy=(0, 0),
-            xytext=(10, 10),
-            textcoords="offset points",
-            bbox=dict(boxstyle="round", fc="#1f1f1f", ec="white"),
-            color="white"
-        )
-        anotacion.set_visible(False)
-
-        def mover_mouse(event):
-
-            if event.inaxes == ax and event.xdata is not None:
-
-               for i, valor in enumerate(ingresos):
-
-                  if abs(event.xdata - i) < 0.3:
-
-                    anotacion.xy = (i, valor)
-                    anotacion.set_text(f"{meses[i]} : ${valor:.2f}")
-                    anotacion.set_visible(True)
-
-                    fig.canvas.draw_idle()
-                    return
-
-            anotacion.set_visible(False)
-            fig.canvas.draw_idle()
-
-        fig.canvas.mpl_connect("motion_notify_event", mover_mouse)
-
-        plt.tight_layout(pad=1.0)
 
         canvas = FigureCanvasTkAgg(fig, master=grafico_container)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
-    # ---------- TABLA ----------
-    columnas = ("ID", "Cliente", "Plan", "Vence", "Pagado", "Estado")
+    cargar_grafico_ingresos()
 
-    frame_tabla = ctk.CTkFrame(scroll)
+    # ---------- TABLA ----------
+    frame_tabla = ctk.CTkFrame(scroll, corner_radius=18)
     frame_tabla.pack(fill="x", padx=20, pady=10)
 
-    style = ttk.Style()
-    style.configure(
-        "Treeview",
-        font=("Segoe UI", 12),
-        rowheight=35
-    )
+    ctk.CTkLabel(
+        frame_tabla,
+        text="Lista de Suscripciones",
+        font=("Segoe UI", 20, "bold")
+    ).pack(anchor="w", padx=20, pady=(15, 5))
 
-    style.configure(
-        "Treeview.Heading",
-        font=("Segoe UI", 15, "bold")
-    )
+    tabla_container = ctk.CTkFrame(frame_tabla)
+    tabla_container.pack(fill="both", expand=True, padx=15, pady=10)
+
+    columnas = ("ID", "Cliente", "Plan", "Inicio", "Vence", "Pagado", "Pendiente", "Estado")
 
     tabla = ttk.Treeview(
-        frame_tabla,
+        tabla_container,
         columns=columnas,
         show="headings",
         height=10
     )
 
-    tabla.heading("ID", text="ID")
-    tabla.heading("Cliente", text="Cliente")
-    tabla.heading("Plan", text="Plan")
-    tabla.heading("Vence", text="Vence")
-    tabla.heading("Pagado", text="Pagado")
-    tabla.heading("Estado", text="Estado")
+    for col in columnas:
+        tabla.heading(col, text=col)
 
-    tabla.column("ID", width=80, anchor="center")
-    tabla.column("Cliente", width=220, anchor="center")
-    tabla.column("Plan", width=180, anchor="center")
-    tabla.column("Vence", width=140, anchor="center")
-    tabla.column("Pagado", width=120, anchor="center")
-    tabla.column("Estado", width=180, anchor="center")
+    tabla.column("ID",        anchor="center", width=50)
+    tabla.column("Cliente",   anchor="center", width=180)
+    tabla.column("Plan",      anchor="center", width=150)
+    tabla.column("Inicio",    anchor="center", width=110)
+    tabla.column("Vence",     anchor="center", width=110)
+    tabla.column("Pagado",    anchor="center", width=100)
+    tabla.column("Pendiente", anchor="center", width=100)
+    tabla.column("Estado",    anchor="center", width=120)
 
-    # colores de estado
-    tabla.tag_configure("activo", foreground="#2ecc71")
-    tabla.tag_configure("vencido", foreground="#e74c3c")
-    tabla.tag_configure("por_vencer", foreground="#f1c40f")
+    tabla.pack(fill="both", expand=True)
 
-    # SCROLL VERTICAL
-    scroll_y = ttk.Scrollbar(frame_tabla, orient="vertical", command=tabla.yview)
-    tabla.configure(yscrollcommand=scroll_y.set)
+    # ── Recarga la tabla con TODAS las suscripciones ─────────────────────────
+    def recargar_tabla():
+        for fila in tabla.get_children():
+            tabla.delete(fila)
+        for id_sus, nombre, plan, inicio, vence, pagado, pendiente in ver_suscripciones_completas():
+            estado = "Activo" if float(pendiente) == 0 else "Pendiente"
+            tabla.insert("", "end", values=(
+                id_sus, nombre, plan, inicio, vence,
+                f"${pagado:.2f}", f"${pendiente:.2f}", estado
+            ))
 
-    # SCROLL HORIZONTAL
-    scroll_x = ttk.Scrollbar(frame_tabla, orient="horizontal", command=tabla.xview)
-    tabla.configure(xscrollcommand=scroll_x.set)
+    recargar_tabla()
 
-    # POSICIONES
-    tabla.grid(row=0, column=0, sticky="nsew")
-    scroll_y.grid(row=0, column=1, sticky="ns")
-    scroll_x.grid(row=1, column=0, sticky="ew")
+    # ---------- BOTONES ----------
+    frame_botones = ctk.CTkFrame(scroll, corner_radius=18)
+    frame_botones.pack(fill="x", padx=20, pady=15)
 
-    frame_tabla.grid_rowconfigure(0, weight=1)
-    frame_tabla.grid_columnconfigure(0, weight=1)
-
-    # ---------- RUEDA DEL MOUSE ----------
-    def _on_mousewheel_principal(event):
-        scroll._parent_canvas.yview_scroll(int(-1 * (event.delta / 5)), "units")
-        return "break"
-
-    def _on_mousewheel_principal_linux_up(event):
-        scroll._parent_canvas.yview_scroll(-1, "units")
-        return "break"
-
-    def _on_mousewheel_principal_linux_down(event):
-        scroll._parent_canvas.yview_scroll(1, "units")
-        return "break"
-
-    def _on_mousewheel_tabla(event):
-        tabla.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        return "break"
-
-    def _on_mousewheel_tabla_linux_up(event):
-        tabla.yview_scroll(-1, "units")
-        return "break"
-
-    def _on_mousewheel_tabla_linux_down(event):
-        tabla.yview_scroll(1, "units")
-        return "break"
-
-    def activar_scroll_tabla(event):
-        ventana.bind_all("<MouseWheel>", _on_mousewheel_tabla)
-        ventana.bind_all("<Button-4>", _on_mousewheel_tabla_linux_up)
-        ventana.bind_all("<Button-5>", _on_mousewheel_tabla_linux_down)
-
-    def activar_scroll_principal(event=None):
-       ventana.bind_all("<MouseWheel>", _on_mousewheel_principal)
-       ventana.bind_all("<Button-4>", _on_mousewheel_principal_linux_up)
-       ventana.bind_all("<Button-5>", _on_mousewheel_principal_linux_down)
-
-    tabla.bind("<Enter>", activar_scroll_tabla)
-    tabla.bind("<Leave>", activar_scroll_principal)
-
-    # activar scroll principal al inicio
-    activar_scroll_principal()
-
-    # ---------- FRAME BOTONES ----------
-    frame_botones = ctk.CTkFrame(scroll)
-    frame_botones.pack(pady=10)
-
-    # ---------- FUNCIONES ----------
     def limpiar_tabla():
         for fila in tabla.get_children():
             tabla.delete(fila)
 
-    def eliminar():
-        seleccion = tabla.selection()
-
-        if not seleccion:
-            messagebox.showwarning("Aviso", "Selecciona una suscripción")
-            return
-
-        item = tabla.item(seleccion[0])
-        datos = item["values"]
-
-        if not datos or not datos[0]:
-            messagebox.showwarning("Aviso", "Esta fila no tiene ID de suscripción")
-            return
-
-        suscripcion_id = datos[0]
-
-        confirmar = messagebox.askyesno(
-            "Confirmar",
-            "¿Eliminar esta suscripción?"
-        )
-
-        if confirmar:
-            eliminar_suscripcion(suscripcion_id)
-            tabla.delete(seleccion[0])
-            messagebox.showinfo("Eliminado", "Suscripción eliminada correctamente")
-
     def estado_gimnasio():
         limpiar_tabla()
-        datos = ver_estado_gimnasio()
-
-        for id_sus, nombre, plan, vence, pagado, deuda in datos:
-            if deuda > 0:
-                estado = "Pendiente"
-                tag = "vencido"
-            else:
-                estado = "Activo"
-                tag = "activo"
-
-            tabla.insert(
-                "",
-                "end",
-                values=(
-                    id_sus,
-                    nombre,
-                    plan,
-                    vence,
-                    f"${float(pagado):.2f}",
-                    estado
-                ),
-                tags=(tag,)
-            )
+        for id_sus, nombre, plan, vence, pagado, deuda in ver_estado_gimnasio():
+            estado = "Activo" if deuda == 0 else "Pendiente"
+            tabla.insert("", "end", values=(id_sus, nombre, plan, "", vence, pagado, "", estado))
 
     def ver_vencidos():
         limpiar_tabla()
-        datos = ver_clientes_vencidos()
-
-        for nombre, fecha in datos:
-            tabla.insert(
-                "",
-                "end",
-                values=(
-                    "",
-                    nombre,
-                    "",
-                    fecha,
-                    "",
-                    "Vencido"
-                ),
-                tags=("vencido",)
-            )
-
-    def ver_por_vencer():
-        limpiar_tabla()
-        datos = clientes_por_vencer()
-
-        for nombre, plan, dias in datos:
-            estado = f"Vence en {dias} días"
-            tabla.insert(
-                "",
-                "end",
-                values=(
-                    "",
-                    nombre,
-                    plan,
-                    "",
-                    "",
-                    estado
-                ),
-                tags=("por_vencer",)
-            )
+        for nombre, fecha in ver_clientes_vencidos():
+            tabla.insert("", "end", values=("", nombre, "", "", fecha, "", "", "Vencido"))
 
     def ver_dias():
         limpiar_tabla()
-        datos = ver_dias_restantes()
+        for nombre, plan, estado in ver_dias_restantes():
+            tabla.insert("", "end", values=("", nombre, plan, "", "", "", "", estado))
 
-        for nombre, plan, estado in datos:
-            estado_texto = str(estado).upper()
+    def eliminar_seleccionada():
+        seleccion = tabla.selection()
+        if not seleccion:
+            messagebox.showwarning("Sin seleccion", "Selecciona una suscripcion de la tabla primero.")
+            return
 
-            if "VENCIDO" in estado_texto:
-                tag = "vencido"
-            elif "VENCE EN" in estado_texto:
-                tag = "por_vencer"
+        fila   = tabla.item(seleccion[0])["values"]
+        id_sus = fila[0]
+        nombre = fila[1]
+
+        if not id_sus:
+            messagebox.showwarning("Sin ID", "Esta fila no tiene un ID valido para eliminar.")
+            return
+
+        if messagebox.askyesno("Confirmar", f"Eliminar suscripcion #{id_sus} de '{nombre}'?"):
+            eliminar_suscripcion(int(id_sus))
+            recargar_tabla()
+            cargar_grafico_ingresos()
+            messagebox.showinfo("Eliminado", f"Suscripcion #{id_sus} eliminada correctamente.")
+
+    # ── Popup agregar suscripcion ─────────────────────────────────────────────
+    def abrir_popup_agregar():
+        popup = ctk.CTkToplevel(ventana)
+        popup.title("Nueva suscripcion")
+        popup.geometry("420x440")
+        popup.resizable(False, False)
+        popup.lift()
+        popup.focus_force()
+        popup.grab_set()
+
+        ctk.CTkLabel(
+            popup,
+            text="Nueva suscripcion",
+            font=("Segoe UI", 20, "bold")
+        ).pack(pady=(20, 10))
+
+        frame_form = ctk.CTkFrame(popup, corner_radius=12)
+        frame_form.pack(fill="x", padx=20, pady=10)
+
+        campos = [
+            ("ID Cliente",                "Ej: 1"),
+            ("ID Membresia",              "Ej: 1"),
+            ("Precio total",              "Ej: 30.00"),
+            ("Monto pagado",              "Ej: 30.00"),
+            ("Fecha inicio (YYYY-MM-DD)", "Dejar vacio = hoy"),
+        ]
+
+        entries_popup = []
+        for i, (label, placeholder) in enumerate(campos):
+            ctk.CTkLabel(frame_form, text=label, font=("Segoe UI", 12)).grid(
+                row=i, column=0, padx=15, pady=7, sticky="w"
+            )
+            entry = ctk.CTkEntry(frame_form, width=190, placeholder_text=placeholder)
+            entry.grid(row=i, column=1, padx=15, pady=7)
+            entries_popup.append(entry)
+
+        e_cliente, e_membresia, e_precio, e_pagado, e_fecha = entries_popup
+
+        def guardar():
+            try:
+                cliente   = int(e_cliente.get())
+                membresia = int(e_membresia.get())
+                precio    = float(e_precio.get())
+                pagado    = float(e_pagado.get())
+            except Exception:
+                messagebox.showerror("Error", "Verifica que ID, precio y monto sean numeros validos.")
+                return
+
+            fecha = e_fecha.get().strip()
+            if fecha == "":
+                asignar_membresia(cliente, membresia, precio, pagado)
             else:
-                tag = "activo"
+                asignar_membresia(cliente, membresia, precio, pagado, fecha)
 
-            tabla.insert(
-                "",
-                "end",
-                values=(
-                    "",
-                    nombre,
-                    plan,
-                    "",
-                    "",
-                    estado
-                ),
-                tags=(tag,)
+            recargar_tabla()
+            cargar_grafico_ingresos()
+            popup.destroy()
+            messagebox.showinfo(
+                "Exito",
+                "Suscripcion agregada.\nPresiona 'Actualizar' en el dashboard para ver el contador actualizado."
             )
 
-    def ver_completas():
-        limpiar_tabla()
-        datos = ver_suscripciones_completas()
+        ctk.CTkButton(
+            popup,
+            text="Guardar suscripcion",
+            height=42,
+            font=("Segoe UI", 13, "bold"),
+            fg_color="#1a7a1a",
+            hover_color="#145214",
+            command=guardar
+        ).pack(pady=18)
 
-        for id_s, cliente, plan, inicio, vence, pagado, deuda in datos:
-            if deuda > 0:
-                estado = "Pendiente"
-                tag = "vencido"
-            else:
-                estado = "Completa"
-                tag = "activo"
+    # Fila de botones de vista
+    botones_vista = [
+        ("Estado del gimnasio", estado_gimnasio),
+        ("Clientes vencidos",   ver_vencidos),
+        ("Dias restantes",      ver_dias),
+        ("Ver todas",           recargar_tabla),
+    ]
 
-            tabla.insert(
-                "",
-                "end",
-                values=(
-                    id_s,
-                    cliente,
-                    plan,
-                    vence,
-                    f"${float(pagado):.2f}",
-                    estado
-                ),
-                tags=(tag,)
-            )
+    for i, (txt, cmd) in enumerate(botones_vista):
+        ctk.CTkButton(
+            frame_botones, text=txt,
+            width=165, height=40, command=cmd
+        ).grid(row=0, column=i, padx=6, pady=10)
 
-    # ---------- BOTONES ----------
+    # Agregar (verde)
     ctk.CTkButton(
         frame_botones,
-        text="Estado del gimnasio",
-        command=estado_gimnasio
-    ).grid(row=0, column=0, padx=10, pady=5)
+        text="+ Agregar suscripcion",
+        width=185, height=40,
+        fg_color="#1a7a1a",
+        hover_color="#145214",
+        command=abrir_popup_agregar
+    ).grid(row=0, column=len(botones_vista), padx=6, pady=10)
 
+    # Eliminar (rojo)
     ctk.CTkButton(
         frame_botones,
-        text="Clientes vencidos",
-        command=ver_vencidos
-    ).grid(row=0, column=1, padx=10)
+        text="Eliminar suscripcion",
+        width=185, height=40,
+        fg_color="#C0392B",
+        hover_color="#922B21",
+        command=eliminar_seleccionada
+    ).grid(row=0, column=len(botones_vista) + 1, padx=6, pady=10)
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Clientes por vencer",
-        command=ver_por_vencer
-    ).grid(row=0, column=2, padx=10)
+    # ---------- FORMULARIO FIJO (mantenido) ----------
+    frame_asignar = ctk.CTkFrame(scroll, corner_radius=18)
+    frame_asignar.pack(fill="x", padx=20, pady=20)
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Días restantes",
-        command=ver_dias
-    ).grid(row=1, column=0, padx=10, pady=5)
+    ctk.CTkLabel(
+        frame_asignar,
+        text="Asignar nueva membresia",
+        font=("Segoe UI", 20, "bold")
+    ).grid(row=0, column=0, columnspan=2, pady=(15, 10))
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Suscripciones completas",
-        command=ver_completas
-    ).grid(row=1, column=1, padx=10)
+    labels = ["ID Cliente", "ID Membresia", "Precio", "Pagado", "Fecha inicio (YYYY-MM-DD)"]
+    entries = []
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Eliminar suscripción",
-        fg_color="#e74c3c",
-        hover_color="#c0392b",
-        command=eliminar
-    ).grid(row=1, column=2, padx=10)
+    for i, texto in enumerate(labels):
+        ctk.CTkLabel(frame_asignar, text=texto).grid(row=i+1, column=0, padx=15, pady=8)
+        entry = ctk.CTkEntry(frame_asignar, width=200)
+        entry.grid(row=i+1, column=1, padx=15, pady=8)
+        entries.append(entry)
 
-    # ---------- FORMULARIO ----------
-    frame_asignar = ctk.CTkFrame(scroll)
-    frame_asignar.pack(pady=15)
-
-    ctk.CTkLabel(frame_asignar, text="ID Cliente").grid(row=0, column=0, padx=10, pady=5)
-    entry_cliente = ctk.CTkEntry(frame_asignar)
-    entry_cliente.grid(row=0, column=1, padx=10, pady=5)
-
-    ctk.CTkLabel(frame_asignar, text="ID Membresía").grid(row=1, column=0, padx=10, pady=5)
-    entry_membresia = ctk.CTkEntry(frame_asignar)
-    entry_membresia.grid(row=1, column=1, padx=10, pady=5)
-
-    ctk.CTkLabel(frame_asignar, text="Precio").grid(row=2, column=0, padx=10, pady=5)
-    entry_precio = ctk.CTkEntry(frame_asignar)
-    entry_precio.grid(row=2, column=1, padx=10, pady=5)
-
-    ctk.CTkLabel(frame_asignar, text="Pagado").grid(row=3, column=0, padx=10, pady=5)
-    entry_pagado = ctk.CTkEntry(frame_asignar)
-    entry_pagado.grid(row=3, column=1, padx=10, pady=5)
+    entry_cliente, entry_membresia, entry_precio, entry_pagado, entry_fecha = entries
 
     def asignar():
         try:
-            cliente = int(entry_cliente.get())
+            cliente   = int(entry_cliente.get())
             membresia = int(entry_membresia.get())
-            precio = float(entry_precio.get())
-            pagado = float(entry_pagado.get())
-        except ValueError:
-            messagebox.showerror("Error", "Datos inválidos")
+            precio    = float(entry_precio.get())
+            pagado    = float(entry_pagado.get())
+        except Exception:
+            messagebox.showerror("Error", "Datos invalidos")
             return
 
-        asignar_membresia(cliente, membresia, precio, pagado)
-        messagebox.showinfo("Éxito", "Membresía asignada")
+        fecha = entry_fecha.get().strip()
+        if fecha == "":
+            asignar_membresia(cliente, membresia, precio, pagado)
+        else:
+            asignar_membresia(cliente, membresia, precio, pagado, fecha)
 
-        entry_cliente.delete(0, ctk.END)
-        entry_membresia.delete(0, ctk.END)
-        entry_precio.delete(0, ctk.END)
-        entry_pagado.delete(0, ctk.END)
+        for e in entries:
+            e.delete(0, ctk.END)
 
+        recargar_tabla()
         cargar_grafico_ingresos()
+        messagebox.showinfo("Exito", "Membresia asignada correctamente.")
 
     ctk.CTkButton(
         frame_asignar,
-        text="Asignar membresía",
+        text="Asignar membresia",
+        height=40,
         command=asignar
-    ).grid(row=4, column=0, columnspan=2, pady=10)
+    ).grid(row=6, column=0, columnspan=2, pady=15)
 
-    # ---------- CARGAR GRAFICO ----------
-    cargar_grafico_ingresos()
+    # ---------- ZONA DE PELIGRO ----------
+    frame_emergencia = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#1a0000")
+    frame_emergencia.pack(fill="x", padx=20, pady=(10, 30))
+
+    ctk.CTkLabel(
+        frame_emergencia,
+        text="Zona de peligro",
+        font=("Segoe UI", 16, "bold"),
+        text_color="#FF4444"
+    ).pack(anchor="w", padx=20, pady=(15, 2))
+
+    ctk.CTkLabel(
+        frame_emergencia,
+        text="Esta accion borra TODOS los clientes, suscripciones y pagos. No se puede deshacer.",
+        font=("Segoe UI", 12),
+        text_color="gray60"
+    ).pack(anchor="w", padx=20, pady=(0, 10))
+
+    def borrar_todo():
+        if not messagebox.askyesno(
+            "Borrar toda la base de datos",
+            "Estas seguro? Se eliminaran clientes, suscripciones, pagos y alertas.\nEsta accion NO se puede deshacer."
+        ):
+            return
+
+        clave = simpledialog.askstring(
+            "Contrasena de administrador",
+            "Ingresa la contrasena para continuar:",
+            show="*",
+            parent=ventana
+        )
+
+        if clave is None:
+            return
+
+        if clave != CLAVE_EMERGENCIA:
+            messagebox.showerror("Contrasena incorrecta", "La contrasena ingresada no es correcta.")
+            return
+
+        try:
+            con = sqlite3.connect(DB_PATH)
+            for t in ["pagos", "suscripciones", "alertas_enviadas", "membresias", "clientes"]:
+                try:
+                    con.execute(f"DELETE FROM {t}")
+                    con.execute(f"DELETE FROM sqlite_sequence WHERE name='{t}'")
+                except sqlite3.OperationalError:
+                    pass
+            con.commit()
+            con.close()
+
+            recargar_tabla()
+            cargar_grafico_ingresos()
+            messagebox.showinfo("Listo", "Base de datos limpiada. IDs reiniciados desde 1.")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo limpiar:\n{e}")
+
+    ctk.CTkButton(
+        frame_emergencia,
+        text="BORRAR TODA LA BASE DE DATOS",
+        height=45,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#8B0000",
+        hover_color="#FF0000",
+        command=borrar_todo
+    ).pack(padx=20, pady=(0, 20))
