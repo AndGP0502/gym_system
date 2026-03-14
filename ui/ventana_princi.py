@@ -146,12 +146,16 @@ def iniciar_ventana():
     canvas.configure(yscrollcommand=scrollbar.set)
 
     area = ttk.Frame(canvas, padding=(40, 30))
-    canvas.create_window((0, 0), window=area, anchor="nw")
+    canvas_window = canvas.create_window((0, 0), window=area, anchor="nw")
 
-    def actualizar_scroll(event):
+    def actualizar_scroll(event=None):
         canvas.configure(scrollregion=canvas.bbox("all"))
 
+    def ajustar_ancho_area(event):
+        canvas.itemconfig(canvas_window, width=event.width)
+
     area.bind("<Configure>", actualizar_scroll)
+    canvas.bind("<Configure>", ajustar_ancho_area)
 
     def _on_mousewheel(event):
         canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
