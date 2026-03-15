@@ -16,6 +16,34 @@ from ui.importar_excel import abrir_ventana_importar
 from tkinter import messagebox
 from PIL import Image, ImageTk
 import os
+import sys
+
+# Raíz del proyecto: funciona tanto corriendo main.py como como .exe
+if getattr(sys, 'frozen', False):
+    _RAIZ = os.path.dirname(sys.executable)
+else:
+    # main_ui.py está en gym_system/ui/, assets/ está en gym_system/
+    _RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def ruta_assets(nombre_archivo):
+    """Ruta ESCRIBIBLE — AppData cuando es .exe, assets/ local en desarrollo."""
+    if getattr(sys, 'frozen', False):
+        base = os.path.join(os.environ.get("APPDATA", ""), "GymSystem", "assets")
+    else:
+        base = os.path.join(_RAIZ, "assets")
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, nombre_archivo)
+
+def ruta_assets_lectura(nombre_archivo):
+    """Ruta de LECTURA — busca primero en AppData, luego en assets/ empaquetado."""
+    personalizada = ruta_assets(nombre_archivo)
+    if os.path.exists(personalizada):
+        return personalizada
+    if getattr(sys, 'frozen', False):
+        base = os.path.join(sys._MEIPASS, "assets")
+    else:
+        base = os.path.join(_RAIZ, "assets")
+    return os.path.join(base, nombre_archivo)
 
 
 def iniciar_ventana():
@@ -276,7 +304,19 @@ def iniciar_ventana():
     lbl_ayuda_logo.pack(pady=(0, 10))
 
     def cargar_logo():
-        ruta = os.path.join("assets", "logo_gym.jpg")
+        ruta = ruta_assets_lectura("logo_gym.jpg")
+
+        # Si no existe el .jpg, intenta convertir el .ico automáticamente
+        if not os.path.exists(ruta):
+            ruta_ico = ruta_assets_lectura("logo_gym.ico")
+            if os.path.exists(ruta_ico):
+                try:
+                    destino = ruta_assets("logo_gym.jpg")
+                    Image.open(ruta_ico).convert("RGB").save(destino, "JPEG", quality=95)
+                    ruta = destino
+                except Exception:
+                    pass
+
         if os.path.exists(ruta):
             img = ImageTk.PhotoImage(Image.open(ruta).resize((200, 200)))
             label_logo.configure(image=img, text="")
@@ -295,7 +335,7 @@ def iniciar_ventana():
         if not ruta_nueva:
             return
         try:
-            destino = os.path.join("assets", "logo_gym.jpg")
+            destino = ruta_assets("logo_gym.jpg")
             Image.open(ruta_nueva).convert("RGB").save(destino, "JPEG", quality=95)
             cargar_logo()
             messagebox.showinfo("Logo actualizado", "El logo se actualizo correctamente.")
@@ -387,6 +427,58 @@ def iniciar_ventana():
     contenido_inferior.pack(fill="both", expand=True, pady=10)
     contenido_inferior.columnconfigure(0, weight=1)
     contenido_inferior.columnconfigure(1, weight=1)
+
+    # ---- Logo del gimnasio (clickeable para cambiar foto) ----
+    from tkinter import filedialog
+
+    frame_gym = ttk.Frame(contenido_inferior, padding=20)
+    frame_gym.grid(row=0, column=0, sticky="n", padx=(0, 10), pady=10)
+
+    ttk.Label(frame_gym, text="Nuestro Gimnasio",
+              font=("Segoe UI", 14, "bold")).pack(pady=(0, 10))
+
+    label_gym = ttk.Label(frame_gym, cursor="hand2")
+    label_gym.pack()
+
+    lbl_ayuda = ttk.Label(
+        frame_gym,
+        text="📷 Clic para cambiar la foto",
+        font=("Segoe UI", 9),
+        foreground="gray",
+        cursor="hand2"
+    )
+    lbl_ayuda.pack(pady=(6, 0))
+
+    def cargar_imagen_gym():
+        ruta = ruta_assets_lectura("gym.jpg")
+        if os.path.exists(ruta):
+            img = ImageTk.PhotoImage(Image.open(ruta).resize((450, 260), Image.LANCZOS))
+            label_gym.configure(image=img, text="")
+            label_gym.image = img
+        else:
+            label_gym.configure(text="Sin foto  —  clic para agregar",
+                                font=("Segoe UI", 11), foreground="gray")
+
+    def cambiar_foto_gimnasio(event=None):
+        ruta_nueva = filedialog.askopenfilename(
+            title="Selecciona la foto del gimnasio",
+            filetypes=[("Imagenes", "*.jpg *.jpeg *.png *.bmp *.webp"),
+                       ("Todos los archivos", "*.*")]
+        )
+        if not ruta_nueva:
+            return
+        try:
+            destino = ruta_assets("gym.jpg")
+            Image.open(ruta_nueva).convert("RGB").save(destino, "JPEG", quality=95)
+            cargar_imagen_gym()
+            messagebox.showinfo("Foto actualizada", "La foto del gimnasio se actualizo correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo cargar la imagen:\n{e}")
+
+    label_gym.bind("<Button-1>", cambiar_foto_gimnasio)
+    lbl_ayuda.bind("<Button-1>", cambiar_foto_gimnasio)
+
+    cargar_imagen_gym()
 
     # ---- Actividad reciente ----
     actividad = ttk.Frame(contenido_inferior, padding=30)
