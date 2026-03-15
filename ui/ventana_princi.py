@@ -118,18 +118,18 @@ def iniciar_ventana():
         # Si no tienes red social en alguno, pon ("", "")
         contactos = [
             (
-                "👤 Nombre Apellido 1",
-                "correo1@ejemplo.com",
-                "+593 99 000 0001",
-                "Instagram: @usuario1",
-                "https://instagram.com/usuario1",
+                "👤 André Garzón",
+                "",
+                "+593 983760090",
+                "Facebook",
+                "https://www.facebook.com/",
             ),
             (
-                "👤 Nombre Apellido 2",
-                "correo2@ejemplo.com",
-                "+593 99 000 0002",
-                "LinkedIn: Nombre Apellido 2",
-                "https://linkedin.com/in/usuario2",
+                "👤 Dennys Chanchicocha",
+                "",
+                "+593 980844726",
+                "Facebook",
+                "https://www.facebook.com/share/186cb5uQdG/",
             ),
         ]
         # ─────────────────────────────────────────────────────────────────
