@@ -90,18 +90,18 @@ def iniciar_ventana():
         # Si no tienes red social en alguno, pon ("", "")
         contactos = [
             (
-                "👤 André Garzón",
-                "",
-                "+593 983760090",
-                "Facebook",
-                "https://www.facebook.com/",
+                "👤 Nombre Apellido 1",
+                "correo1@ejemplo.com",
+                "+593 99 000 0001",
+                "Instagram: @usuario1",
+                "https://instagram.com/usuario1",
             ),
             (
-                "👤 Dennys Chanchicocha",
-                "",
-                "+593 980844726",
-                "Facebook",
-                "https://www.facebook.com/share/186cb5uQdG/",
+                "👤 Nombre Apellido 2",
+                "correo2@ejemplo.com",
+                "+593 99 000 0002",
+                "LinkedIn: Nombre Apellido 2",
+                "https://linkedin.com/in/usuario2",
             ),
         ]
         # ─────────────────────────────────────────────────────────────────
@@ -262,14 +262,50 @@ def iniciar_ventana():
         command=ventana.destroy, **boton_style
     ).pack(pady=6)
 
-    # Logo del gym
-    ruta_logo = os.path.join("assets", "logo_gym.jpg")
-    if os.path.exists(ruta_logo):
-        imagen_logo = Image.open(ruta_logo).resize((200, 200))
-        logo = ImageTk.PhotoImage(imagen_logo)
-        label_logo = ttk.Label(sidebar, image=logo)
-        label_logo.image = logo
-        label_logo.pack(pady=(30, 10))
+    # Logo del gym (clickeable para cambiar)
+    label_logo = ttk.Label(sidebar, cursor="hand2")
+    label_logo.pack(pady=(30, 4))
+
+    lbl_ayuda_logo = ttk.Label(
+        sidebar,
+        text="Clic para cambiar el logo",
+        font=("Segoe UI", 8),
+        foreground="gray",
+        cursor="hand2"
+    )
+    lbl_ayuda_logo.pack(pady=(0, 10))
+
+    def cargar_logo():
+        ruta = os.path.join("assets", "logo_gym.jpg")
+        if os.path.exists(ruta):
+            img = ImageTk.PhotoImage(Image.open(ruta).resize((200, 200)))
+            label_logo.configure(image=img, text="")
+            label_logo.image = img
+        else:
+            label_logo.configure(text="Sin logo - clic para agregar",
+                                 font=("Segoe UI", 10), foreground="gray")
+
+    def cambiar_logo(event=None):
+        from tkinter import filedialog
+        ruta_nueva = filedialog.askopenfilename(
+            title="Selecciona el logo del gimnasio",
+            filetypes=[("Imagenes", "*.jpg *.jpeg *.png *.bmp *.webp"),
+                       ("Todos los archivos", "*.*")]
+        )
+        if not ruta_nueva:
+            return
+        try:
+            destino = os.path.join("assets", "logo_gym.jpg")
+            Image.open(ruta_nueva).convert("RGB").save(destino, "JPEG", quality=95)
+            cargar_logo()
+            messagebox.showinfo("Logo actualizado", "El logo se actualizo correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo cargar la imagen:\n{e}")
+
+    label_logo.bind("<Button-1>", cambiar_logo)
+    lbl_ayuda_logo.bind("<Button-1>", cambiar_logo)
+
+    cargar_logo()
 
     # ---------------- ÁREA PRINCIPAL CON SCROLL ----------------
 
@@ -351,19 +387,6 @@ def iniciar_ventana():
     contenido_inferior.pack(fill="both", expand=True, pady=10)
     contenido_inferior.columnconfigure(0, weight=1)
     contenido_inferior.columnconfigure(1, weight=1)
-
-    # ---- Logo del gimnasio ----
-    ruta_gym = os.path.join("assets", "gym.jpg")
-    if os.path.exists(ruta_gym):
-        imagen = Image.open(ruta_gym).resize((450, 260), Image.LANCZOS)
-        img_gym = ImageTk.PhotoImage(imagen)
-        frame_gym = ttk.Frame(contenido_inferior, padding=20)
-        frame_gym.grid(row=0, column=0, sticky="n", padx=(0, 10), pady=10)
-        ttk.Label(frame_gym, text="Nuestro Gimnasio",
-                  font=("Segoe UI", 14, "bold")).pack(pady=(0, 10))
-        label_gym = ttk.Label(frame_gym, image=img_gym)
-        label_gym.image = img_gym
-        label_gym.pack()
 
     # ---- Actividad reciente ----
     actividad = ttk.Frame(contenido_inferior, padding=30)
