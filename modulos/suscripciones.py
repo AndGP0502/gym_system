@@ -747,6 +747,49 @@ def ver_clientes_activos_detalle():
     con.close()
     return datos
 
+# -------- CONTAR SUSCRIPCIONES VENCIDAS POR MES/AÑO --------
+def contar_suscripciones_vencidas_filtro(mes=None, anio=None):
+    """Cuenta suscripciones vencidas filtrando por mes y/o año de vencimiento."""
+    con = _con()
+    cur = con.cursor()
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    
+    query = "SELECT COUNT(*) FROM suscripciones WHERE fecha_vencimiento < ?"
+    params = [hoy]
+    
+    if anio:
+        query += " AND strftime('%Y', fecha_vencimiento) = ?"
+        params.append(str(anio))
+    if mes:
+        query += " AND strftime('%m', fecha_vencimiento) = ?"
+        params.append(f"{mes:02d}")
+    
+    total = cur.execute(query, params).fetchone()[0]
+    con.close()
+    return total
+
+
+# -------- CONTAR CLIENTES ACTIVOS POR MES/AÑO --------
+def contar_clientes_activos_filtro(mes=None, anio=None):
+    """Cuenta suscripciones activas (no vencidas) filtrando por mes y/o año de inicio."""
+    con = _con()
+    cur = con.cursor()
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    
+    query = "SELECT COUNT(*) FROM suscripciones WHERE fecha_vencimiento >= ?"
+    params = [hoy]
+    
+    if anio:
+        query += " AND strftime('%Y', fecha_inicio) = ?"
+        params.append(str(anio))
+    if mes:
+        query += " AND strftime('%m', fecha_inicio) = ?"
+        params.append(f"{mes:02d}")
+    
+    total = cur.execute(query, params).fetchone()[0]
+    con.close()
+    return total
+
 # -------- RENOVAR SUSCRIPCION DE UN CLIENTE (+30 dias) --------
 def renovar_suscripcion_cliente(cliente_id: int, dias: int = 30) -> str:
     """

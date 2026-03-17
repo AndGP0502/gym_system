@@ -90,6 +90,28 @@ def editar_cliente(cliente_id, nombre, cedula, telefono, fecha):
     con.close()
     return "Cliente actualizado correctamente"
 
+# -------- CONTAR CLIENTES POR MES/AÑO DE REGISTRO --------
+def contar_clientes_filtro(mes=None, anio=None):
+    """Cuenta clientes registrados filtrando por mes y/o año."""
+    con = _con()
+    cur = con.cursor()
+    
+    query = "SELECT COUNT(*) FROM clientes WHERE 1=1"
+    params = []
+    
+    if anio:
+        query += " AND (strftime('%Y', fecha_registro) = ? OR fecha_registro LIKE ?)"
+        params.append(str(anio))
+        params.append(f"%/{anio}")
+    if mes:
+        query += " AND (strftime('%m', fecha_registro) = ? OR fecha_registro LIKE ?)"
+        params.append(f"{mes:02d}")
+        params.append(f"{mes:02d}/%")
+    
+    total = cur.execute(query, params).fetchone()[0]
+    con.close()
+    return total
+
 
 # -------- CONTAR CLIENTES --------
 def contar_clientes():

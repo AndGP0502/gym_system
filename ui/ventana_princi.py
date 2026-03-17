@@ -7,9 +7,9 @@ from ui.pagos_ui import abrir_ventana_pagos
 from ui.suscripciones_ui import abrir_ventana_suscripciones
 from ui.membresias_ui import abrir_ventana_membresias
 
-from modulos.clientes import contar_clientes
+from modulos.clientes import contar_clientes, contar_clientes_filtro
 from modulos.membresias import contar_membresias
-from modulos.suscripciones import contar_suscripciones_vencidas, contar_clientes_activos, ver_clientes_activos_detalle
+from modulos.suscripciones import contar_suscripciones_vencidas, contar_clientes_activos, ver_clientes_activos_detalle, contar_suscripciones_vencidas_filtro, contar_clientes_activos_filtro
 from modulos.backup_db import crear_backup, restaurar_backup
 from modulos.graficas import grafica_clientes
 from ui.importar_excel import abrir_ventana_importar
@@ -118,18 +118,18 @@ def iniciar_ventana():
         # Si no tienes red social en alguno, pon ("", "")
         contactos = [
             (
-                "👤 Nombre Apellido 1",
-                "correo1@ejemplo.com",
-                "+593 99 000 0001",
-                "Instagram: @usuario1",
-                "https://instagram.com/usuario1",
+                "👤 André Garzón",
+                "",
+                "+593 983760090",
+                "Facebook",
+                "https://www.facebook.com/",
             ),
             (
-                "👤 Nombre Apellido 2",
-                "correo2@ejemplo.com",
-                "+593 99 000 0002",
-                "LinkedIn: Nombre Apellido 2",
-                "https://linkedin.com/in/usuario2",
+                "👤 Dennys Chanchicocha",
+                "",
+                "+593 980844726",
+                "Facebook",
+                "https://www.facebook.com/share/186cb5uQdG/",
             ),
         ]
         # ─────────────────────────────────────────────────────────────────
@@ -190,11 +190,42 @@ def iniciar_ventana():
 
     # ---------------- FUNCIONES ----------------
 
-    def actualizar_dashboard():
-        numero_clientes.config(text=str(contar_clientes()))
+    def actualizar_dashboard(event=None):
+        try:
+            sel_mes  = combo_mes_dash.get()
+            sel_anio = combo_anio_dash.get()
+            mes_num  = meses_dash.index(sel_mes)  if sel_mes  != "Todos" else None
+            anio     = int(sel_anio)              if sel_anio != "Todos" else None
+        except Exception:
+            mes_num = None
+            anio    = None
+            sel_mes = sel_anio = "Todos" 
+
+        # Clientes registrados — filtrado por mes/año de registro
+        numero_clientes.config(text=str(
+            contar_clientes_filtro(mes_num, anio) if (mes_num or anio) else contar_clientes()
+        ))
+        # Membresías — siempre total
         numero_membresias.config(text=str(contar_membresias()))
-        numero_vencidas.config(text=str(contar_suscripciones_vencidas()))
-        numero_activos.config(text=str(contar_clientes_activos()))
+        # Vencidas — filtrado por mes/año de vencimiento
+        numero_vencidas.config(text=str(
+            contar_suscripciones_vencidas_filtro(mes_num, anio) if (mes_num or anio) else contar_suscripciones_vencidas()
+        ))
+        # Activos — filtrado por mes/año de inicio
+        numero_activos.config(text=str(
+            contar_clientes_activos_filtro(mes_num, anio) if (mes_num or anio) else contar_clientes_activos()
+        ))
+
+        # Info del filtro activo
+        try:
+            filtro = []
+            if mes_num: filtro.append(meses_dash[mes_num])
+            if anio:    filtro.append(str(anio))
+            lbl_filtro_info.configure(
+                text=f"Filtrando: {' / '.join(filtro)}" if filtro else "Mostrando todos los periodos"
+            )
+        except Exception:
+            pass
 
         for widget in frame_grafica.winfo_children():
             widget.destroy()
@@ -221,9 +252,41 @@ def iniciar_ventana():
             messagebox.showerror("Error", f"No se pudo restaurar:\n{e}")
 
     # ---------------- LAYOUT PRINCIPAL ----------------
+    # Scrollbar global al extremo derecho de toda la ventana
 
-    contenedor = ttk.Frame(ventana)
-    contenedor.pack(fill="both", expand=True)
+    import tkinter as tk_raw
+
+    # Frame raíz que ocupa toda la ventana
+    root_frame = ttk.Frame(ventana)
+    root_frame.pack(fill="both", expand=True)
+    root_frame.columnconfigure(0, weight=1)
+    root_frame.rowconfigure(0, weight=1)
+
+    # Canvas principal que envuelve TODO (sidebar + contenido)
+    main_canvas = tk_raw.Canvas(root_frame, highlightthickness=0)
+    main_canvas.grid(row=0, column=0, sticky="nsew")
+
+    # Scrollbar global al extremo derecho
+    global_sb = ttk.Scrollbar(root_frame, orient="vertical", command=main_canvas.yview)
+    global_sb.grid(row=0, column=1, sticky="ns")
+    main_canvas.configure(yscrollcommand=global_sb.set)
+
+    # Frame interno que contiene sidebar + área principal
+    contenedor = ttk.Frame(main_canvas)
+    main_canvas.create_window((0, 0), window=contenedor, anchor="nw", tags="contenedor")
+
+    def _ajustar_main(event):
+        main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+    def _ajustar_ancho_main(event):
+        main_canvas.itemconfig("contenedor", width=event.width)
+
+    contenedor.bind("<Configure>", _ajustar_main)
+    main_canvas.bind("<Configure>", _ajustar_ancho_main)
+
+    def _on_mousewheel(event):
+        main_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+    main_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
     contenedor.columnconfigure(1, weight=1)
     contenedor.rowconfigure(0, weight=1)
 
@@ -327,7 +390,7 @@ def iniciar_ventana():
             label_logo.configure(image=img, text="")
             label_logo.image = img
         else:
-            label_logo.configure(text="Sin logo - clic para agregar",
+            label_logo.configure(text="Sin logo - click para agregar",
                                  font=("Segoe UI", 10), foreground="gray")
 
     def cambiar_logo(event=None):
@@ -354,36 +417,10 @@ def iniciar_ventana():
 
     cargar_logo()
 
-    # ---------------- ÁREA PRINCIPAL CON SCROLL ----------------
+    # ---------------- ÁREA PRINCIPAL ----------------
 
-    contenedor_scroll = ttk.Frame(contenedor)
-    contenedor_scroll.grid(row=0, column=1, sticky="nsew")
-    contenedor_scroll.rowconfigure(0, weight=1)
-    contenedor_scroll.columnconfigure(0, weight=1)
-
-    canvas = ttk.Canvas(contenedor_scroll)
-    canvas.grid(row=0, column=0, sticky="nsew")
-
-    scrollbar = ttk.Scrollbar(contenedor_scroll, orient="vertical", command=canvas.yview)
-    scrollbar.grid(row=0, column=1, sticky="ns")
-    canvas.configure(yscrollcommand=scrollbar.set)
-
-    area = ttk.Frame(canvas, padding=(40, 30))
-    canvas_window = canvas.create_window((0, 0), window=area, anchor="nw")
-
-    def actualizar_scroll(event=None):
-        canvas.configure(scrollregion=canvas.bbox("all"))
-
-    def ajustar_ancho_area(event):
-        canvas.itemconfig(canvas_window, width=event.width)
-
-    area.bind("<Configure>", actualizar_scroll)
-    canvas.bind("<Configure>", ajustar_ancho_area)
-
-    def _on_mousewheel(event):
-        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-    canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    area = ttk.Frame(contenedor, padding=(40, 30))
+    area.grid(row=0, column=1, sticky="nsew")
 
     # ---------------- HEADER ----------------
 
@@ -400,6 +437,35 @@ def iniciar_ventana():
         header, text="🔄 Actualizar",
         bootstyle="info", command=actualizar_dashboard
     ).pack(side="right", padx=5)
+
+    # ---------------- SELECTOR MES/AÑO ----------------
+
+    frame_filtro = ttk.Frame(area)
+    frame_filtro.pack(fill="x", pady=(0, 10))
+
+    ttk.Label(frame_filtro, text="Filtrar cards por:",
+              font=("Segoe UI", 12, "bold")).pack(side="left", padx=(0, 10))
+
+    meses_dash = ["Todos", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    combo_mes_dash = ttk.Combobox(frame_filtro, values=meses_dash, width=14, state="readonly")
+    combo_mes_dash.set("Todos")
+    combo_mes_dash.pack(side="left", padx=(0, 8))
+
+    ttk.Label(frame_filtro, text="Año:",
+              font=("Segoe UI", 12, "bold")).pack(side="left", padx=(0, 6))
+
+    anios_dash = ["Todos"] + [str(a) for a in range(2020, 2101)]
+    combo_anio_dash = ttk.Combobox(frame_filtro, values=anios_dash, width=10, state="readonly")
+    combo_anio_dash.set("Todos")
+    combo_anio_dash.pack(side="left", padx=(0, 8))
+
+    lbl_filtro_info = ttk.Label(frame_filtro, text="Mostrando todos los periodos",
+                                font=("Segoe UI", 10), bootstyle="info")
+    lbl_filtro_info.pack(side="left", padx=15)
+
+    combo_mes_dash.bind("<<ComboboxSelected>>",  actualizar_dashboard)
+    combo_anio_dash.bind("<<ComboboxSelected>>", actualizar_dashboard)
 
     # ---------------- CARDS ----------------
 
@@ -435,59 +501,6 @@ def iniciar_ventana():
     contenido_inferior.columnconfigure(0, weight=1)
     contenido_inferior.columnconfigure(1, weight=1)
 
-    # ---- Logo del gimnasio (clickeable para cambiar foto) ----
-    from tkinter import filedialog
-
-    frame_gym = ttk.Frame(contenido_inferior, padding=20)
-    frame_gym.grid(row=0, column=0, sticky="n", padx=(0, 10), pady=10)
-
-    ttk.Label(frame_gym, text="Nuestro Gimnasio",
-              font=("Segoe UI", 14, "bold")).pack(pady=(0, 10))
-
-    label_gym = ttk.Label(frame_gym, cursor="hand2")
-    label_gym.pack()
-
-    lbl_ayuda = ttk.Label(
-        frame_gym,
-        text="📷 Clic para cambiar la foto",
-        font=("Segoe UI", 9),
-        foreground="gray",
-        cursor="hand2"
-    )
-    lbl_ayuda.pack(pady=(6, 0))
-
-    def cargar_imagen_gym():
-        ruta = ruta_assets_lectura("gym.jpg")
-        if os.path.exists(ruta):
-            img = ImageTk.PhotoImage(Image.open(ruta).resize((450, 260), Image.LANCZOS))
-            label_gym.configure(image=img, text="")
-            label_gym.image = img
-        else:
-            label_gym.configure(text="Sin foto  —  clic para agregar",
-                                font=("Segoe UI", 11), foreground="gray")
-
-    def cambiar_foto_gimnasio(event=None):
-        ventana.focus_force()
-        ruta_nueva = filedialog.askopenfilename(
-            parent=ventana,
-            title="Selecciona la foto del gimnasio",
-            filetypes=[("Imagenes", "*.jpg *.jpeg *.png *.bmp *.webp"),
-                       ("Todos los archivos", "*.*")]
-        )
-        if not ruta_nueva:
-            return
-        try:
-            destino = ruta_assets("gym.jpg")
-            Image.open(ruta_nueva).convert("RGB").save(destino, "JPEG", quality=95)
-            cargar_imagen_gym()
-            messagebox.showinfo("Foto actualizada", "La foto del gimnasio se actualizo correctamente.")
-        except Exception as e:
-            messagebox.showerror("Error", f"No se pudo cargar la imagen:\n{e}")
-
-    label_gym.bind("<Button-1>", cambiar_foto_gimnasio)
-    lbl_ayuda.bind("<Button-1>", cambiar_foto_gimnasio)
-
-    cargar_imagen_gym()
 
     # ---- Actividad reciente ----
     actividad = ttk.Frame(contenido_inferior, padding=30)
