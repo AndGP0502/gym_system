@@ -343,8 +343,9 @@ def abrir_ventana_clientes(parent):
             messagebox.showwarning("Advertencia", "Seleccione un cliente")
             return
         valores = tabla.item(item[0], "values")
-        enviar_recordatorio_manual(valores[1], valores[3])
-        messagebox.showinfo("WhatsApp", "Mensaje enviado")
+        id_cliente = int(valores[0])
+        enviar_recordatorio_manual(valores[1], valores[3], id_cliente)
+        messagebox.showinfo("WhatsApp", f"Abriendo WhatsApp para {valores[1]}...")
 
     def ver_ficha():
         nonlocal cliente_seleccionado

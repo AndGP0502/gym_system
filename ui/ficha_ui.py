@@ -13,9 +13,7 @@ FOTO_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 
 def _crear_avatar_default():
-    """Crea una imagen de avatar por defecto si no existe."""
-    ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        "..", "assets")
+    ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets")
     os.makedirs(ruta, exist_ok=True)
     ruta_img = os.path.join(ruta, "default_avatar.png")
     if not os.path.exists(ruta_img):
@@ -52,25 +50,18 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
     frame_header = ctk.CTkFrame(scroll, corner_radius=18)
     frame_header.pack(fill="x", padx=20, pady=(20, 10))
 
-    ctk.CTkLabel(
-        frame_header,
-        text=f"Ficha de {nombre_cliente}",
-        font=("Segoe UI", 26, "bold")
-    ).pack(side="left", padx=20, pady=18)
-
-    ctk.CTkButton(
-        frame_header, text="✕ Cerrar",
-        width=120, height=38,
-        fg_color="#2A2A2A", hover_color="#3A3A3A",
-        command=popup.destroy
-    ).pack(side="right", padx=20, pady=18)
+    ctk.CTkLabel(frame_header, text=f"Ficha de {nombre_cliente}",
+                 font=("Segoe UI", 26, "bold")).pack(side="left", padx=20, pady=18)
+    ctk.CTkButton(frame_header, text="✕ Cerrar", width=120, height=38,
+                  fg_color="#2A2A2A", hover_color="#3A3A3A",
+                  command=popup.destroy).pack(side="right", padx=20, pady=18)
 
     # ── PANEL SUPERIOR: foto + datos generales ────────────────────────────────
     frame_superior = ctk.CTkFrame(scroll, corner_radius=18)
     frame_superior.pack(fill="x", padx=20, pady=10)
     frame_superior.columnconfigure(1, weight=1)
 
-    # ── Foto (izquierda) ──────────────────────────────────────────────────────
+    # ── Foto ─────────────────────────────────────────────────────────────────
     frame_foto = ctk.CTkFrame(frame_superior, corner_radius=15, width=220, fg_color="#2b2b2b")
     frame_foto.grid(row=0, column=0, padx=20, pady=20, sticky="n")
     frame_foto.pack_propagate(False)
@@ -84,26 +75,20 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
         except Exception:
             ruta = _crear_avatar_default()
             img  = Image.open(ruta).resize((180, 180))
-
-        # Recorte circular
         mask = Image.new("L", (180, 180), 0)
         draw = ImageDraw.Draw(mask)
         draw.ellipse([0, 0, 180, 180], fill=255)
         img_circular = Image.new("RGBA", (180, 180))
         img_circular.paste(img.convert("RGBA"), mask=mask)
-
         foto_tk = ImageTk.PhotoImage(img_circular)
         foto_imagen["ref"] = foto_tk
         lbl_foto.configure(image=foto_tk, text="")
 
-    lbl_foto = ctk.CTkLabel(frame_foto, text="📷\nToca para\nagregar foto", 
-                         width=180, height=180, cursor="hand2")
+    lbl_foto = ctk.CTkLabel(frame_foto, text="📷\nToca para\nagregar foto",
+                            width=180, height=180, cursor="hand2")
     lbl_foto.pack(pady=(15, 8))
     lbl_foto.bind("<Button-1>", lambda e: seleccionar_foto())
-
-    # Cargar foto existente o avatar
-    ruta_inicial = foto_ruta["valor"] or _crear_avatar_default()
-    cargar_imagen_foto(ruta_inicial)
+    cargar_imagen_foto(foto_ruta["valor"] or _crear_avatar_default())
 
     def seleccionar_foto():
         ruta = filedialog.askopenfilename(
@@ -117,16 +102,11 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
             cargar_imagen_foto(ruta_guardada)
         traer_al_frente()
 
-    ctk.CTkButton(
-        frame_foto,
-        text="📷 Cambiar foto",
-        height=36, width=160,
-        fg_color="#1f6aa5",
-        hover_color="#174f7a",
-        command=seleccionar_foto
-    ).pack(pady=(0, 15))
+    ctk.CTkButton(frame_foto, text="📷 Cambiar foto", height=36, width=160,
+                  fg_color="#1f6aa5", hover_color="#174f7a",
+                  command=seleccionar_foto).pack(pady=(0, 15))
 
-    # ── Datos generales (derecha) ─────────────────────────────────────────────
+    # ── Datos generales ───────────────────────────────────────────────────────
     frame_datos = ctk.CTkFrame(frame_superior, corner_radius=15, fg_color="#2b2b2b")
     frame_datos.grid(row=0, column=1, padx=(0, 20), pady=20, sticky="nsew")
 
@@ -140,8 +120,8 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
 
     ctk.CTkLabel(frame_campos, text="Objetivo:", font=("Segoe UI", 13, "bold")).grid(
         row=0, column=0, padx=(0, 10), pady=8, sticky="w")
-    objetivos = ["Bajar de peso", "Ganar músculo", "Mantenimiento",
-                 "Mejorar resistencia", "Rehabilitación", "Otro"]
+    objetivos = ["Perdida de grasa", "Aumento de masa muscular", "Entrenamiento funcional",
+                 "Atletas", "Mantenimiento", "Rehabilitación", "Otro"]
     combo_objetivo = ctk.CTkComboBox(frame_campos, values=objetivos, width=240, height=36)
     combo_objetivo.grid(row=0, column=1, padx=(0, 25), pady=8, sticky="w")
 
@@ -151,32 +131,131 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
     combo_estado = ctk.CTkComboBox(frame_campos, values=estados, width=180, height=36)
     combo_estado.grid(row=0, column=3, pady=8, sticky="w")
 
-    ctk.CTkLabel(frame_campos, text="Condiciones médicas:", font=("Segoe UI", 13, "bold")).grid(
-        row=1, column=0, padx=(0, 10), pady=(10, 0), sticky="nw")
-    txt_condiciones = ctk.CTkTextbox(frame_campos, height=75)
-    txt_condiciones.grid(row=1, column=1, columnspan=3, pady=(10, 0), sticky="ew")
-
     ctk.CTkLabel(frame_campos, text="Notas adicionales:", font=("Segoe UI", 13, "bold")).grid(
-        row=2, column=0, padx=(0, 10), pady=(10, 0), sticky="nw")
+        row=1, column=0, padx=(0, 10), pady=(10, 0), sticky="nw")
     txt_notas = ctk.CTkTextbox(frame_campos, height=60)
-    txt_notas.grid(row=2, column=1, columnspan=3, pady=(10, 0), sticky="ew")
+    txt_notas.grid(row=1, column=1, columnspan=3, pady=(10, 0), sticky="ew")
 
-    # Cargar datos existentes
+    # ── DATOS FÍSICOS (importados del Excel) ──────────────────────────────────
+    frame_fisicos = ctk.CTkFrame(scroll, corner_radius=18)
+    frame_fisicos.pack(fill="x", padx=20, pady=10)
+
+    ctk.CTkLabel(frame_fisicos, text="Datos Físicos",
+                 font=("Segoe UI", 18, "bold")).pack(anchor="w", padx=20, pady=(18, 10))
+
+    frame_fis_inner = ctk.CTkFrame(frame_fisicos, fg_color="transparent")
+    frame_fis_inner.pack(fill="x", padx=20, pady=(0, 10))
+
+    # Fila 1: peso, altura, circunferencia, peso ideal
+    campos_fis = [
+        ("Peso (kg):",        "entry_peso_fis"),
+        ("Altura (m):",       "entry_altura_fis"),
+        ("Cir. Abdominal (cm):", "entry_cir"),
+        ("Peso ideal (kg):",  "entry_peso_ideal"),
+    ]
+    entries_fis = {}
+    for col_idx, (label, key) in enumerate(campos_fis):
+        ctk.CTkLabel(frame_fis_inner, text=label, font=("Segoe UI", 12, "bold")).grid(
+            row=0, column=col_idx * 2, padx=(0, 6), pady=6, sticky="w")
+        e = ctk.CTkEntry(frame_fis_inner, width=120, height=34)
+        e.grid(row=0, column=col_idx * 2 + 1, padx=(0, 20), pady=6)
+        entries_fis[key] = e
+
+    # Fila 2: status, objetivo secundario
+    ctk.CTkLabel(frame_fis_inner, text="Status:", font=("Segoe UI", 12, "bold")).grid(
+        row=1, column=0, padx=(0, 6), pady=6, sticky="w")
+    status_vals = ["Principiante", "Intermedio", "Avanzado", "Atleta"]
+    combo_status = ctk.CTkComboBox(frame_fis_inner, values=status_vals, width=160, height=34)
+    combo_status.grid(row=1, column=1, padx=(0, 20), pady=6, sticky="w")
+
+    ctk.CTkLabel(frame_fis_inner, text="Objetivo secundario:", font=("Segoe UI", 12, "bold")).grid(
+        row=1, column=2, padx=(0, 6), pady=6, sticky="w")
+    combo_obj2 = ctk.CTkComboBox(frame_fis_inner, values=objetivos, width=220, height=34)
+    combo_obj2.grid(row=1, column=3, padx=(0, 20), pady=6, sticky="w")
+
+    # ── CONDICIONES MÉDICAS ───────────────────────────────────────────────────
+    frame_medicas = ctk.CTkFrame(scroll, corner_radius=18)
+    frame_medicas.pack(fill="x", padx=20, pady=10)
+
+    ctk.CTkLabel(frame_medicas, text="Condiciones Médicas",
+                 font=("Segoe UI", 18, "bold")).pack(anchor="w", padx=20, pady=(18, 6))
+    ctk.CTkLabel(frame_medicas, text="Marca las condiciones que aplican al cliente:",
+                 font=("Segoe UI", 11), text_color="gray70").pack(anchor="w", padx=20, pady=(0, 10))
+
+    frame_checks = ctk.CTkFrame(frame_medicas, fg_color="transparent")
+    frame_checks.pack(fill="x", padx=20, pady=(0, 18))
+
+    condiciones_config = [
+        ("lesion",         "Lesión muscular o articular"),
+        ("cardiovascular", "Enfermedad cardiovascular"),
+        ("asfixia",        "Se asfixia con facilidad"),
+        ("asmatico",       "Asmático / Epiléptico / Diabético"),
+        ("medicacion",     "Toma medicación actualmente"),
+        ("mareos",         "Mareos o desmayos al ejercitar"),
+    ]
+
+    checks_vars = {}
+    for i, (key, label) in enumerate(condiciones_config):
+        var = ctk.StringVar(value="NO")
+        checks_vars[key] = var
+        ctk.CTkCheckBox(
+            frame_checks,
+            text=label,
+            variable=var,
+            onvalue="SI",
+            offvalue="NO",
+            font=("Segoe UI", 12)
+        ).grid(row=i // 3, column=i % 3, padx=15, pady=6, sticky="w")
+
+    # ── Cargar ficha existente ────────────────────────────────────────────────
     ficha = obtener_ficha(cliente_id)
     if ficha:
-        if ficha["objetivo"]:     combo_objetivo.set(ficha["objetivo"])
-        if ficha["estado_fisico"]: combo_estado.set(ficha["estado_fisico"])
-        if ficha["condiciones"]:  txt_condiciones.insert("1.0", ficha["condiciones"])
-        if ficha["notas"]:        txt_notas.insert("1.0", ficha["notas"])
+        if ficha.get("objetivo"):      combo_objetivo.set(ficha["objetivo"])
+        if ficha.get("estado_fisico"): combo_estado.set(ficha["estado_fisico"])
+        if ficha.get("notas"):         txt_notas.insert("1.0", ficha["notas"])
+
+        # Datos físicos
+        def _set_entry(entry, val):
+            if val is not None:
+                entry.delete(0, "end")
+                entry.insert(0, str(val))
+
+        _set_entry(entries_fis["entry_peso_fis"],   ficha.get("peso_kg"))
+        _set_entry(entries_fis["entry_altura_fis"], ficha.get("altura_m"))
+        _set_entry(entries_fis["entry_cir"],        ficha.get("cir_abdominal"))
+        _set_entry(entries_fis["entry_peso_ideal"], ficha.get("peso_ideal"))
+
+        if ficha.get("status_fisico"): combo_status.set(ficha["status_fisico"])
+        if ficha.get("objetivo_2"):    combo_obj2.set(ficha["objetivo_2"])
+
+        # Condiciones médicas
+        for key, var in checks_vars.items():
+            valor = ficha.get(key, "NO")
+            var.set("SI" if str(valor).upper() == "SI" else "NO")
 
     def guardar_ficha_click():
         guardar_ficha(
             cliente_id,
             objetivo      = combo_objetivo.get().strip(),
             estado_fisico = combo_estado.get().strip(),
-            condiciones   = txt_condiciones.get("1.0", "end").strip(),
+            condiciones   = ", ".join(
+                label for key, label in condiciones_config
+                if checks_vars[key].get() == "SI"
+            ) or "Ninguna",
             notas         = txt_notas.get("1.0", "end").strip(),
-            foto_ruta     = foto_ruta["valor"]
+            foto_ruta     = foto_ruta["valor"],
+            peso_kg       = _safe_float(entries_fis["entry_peso_fis"].get()),
+            altura_m      = _safe_float(entries_fis["entry_altura_fis"].get()),
+            cir_abdominal = _safe_float(entries_fis["entry_cir"].get()),
+            status_fisico = combo_status.get().strip(),
+            objetivo_2    = combo_obj2.get().strip(),
+            peso_ideal    = _safe_float(entries_fis["entry_peso_ideal"].get()),
+            lesion        = checks_vars["lesion"].get(),
+            cardiovascular= checks_vars["cardiovascular"].get(),
+            asfixia       = checks_vars["asfixia"].get(),
+            asmatico      = checks_vars["asmatico"].get(),
+            medicacion    = checks_vars["medicacion"].get(),
+            mareos        = checks_vars["mareos"].get(),
         )
         messagebox.showinfo("Guardado", "Ficha guardada correctamente.", parent=popup)
         traer_al_frente()
@@ -199,20 +278,24 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
     frame_inputs = ctk.CTkFrame(frame_medida, fg_color="transparent")
     frame_inputs.pack(fill="x", padx=20, pady=(0, 5))
 
-    ctk.CTkLabel(frame_inputs, text="Peso (kg):", font=("Segoe UI", 13)).grid(row=0, column=0, padx=(0,8), pady=8, sticky="w")
+    ctk.CTkLabel(frame_inputs, text="Peso (kg):", font=("Segoe UI", 13)).grid(
+        row=0, column=0, padx=(0, 8), pady=8, sticky="w")
     entry_peso = ctk.CTkEntry(frame_inputs, width=110, height=36)
-    entry_peso.grid(row=0, column=1, padx=(0,20), pady=8)
+    entry_peso.grid(row=0, column=1, padx=(0, 20), pady=8)
 
-    ctk.CTkLabel(frame_inputs, text="Altura (cm):", font=("Segoe UI", 13)).grid(row=0, column=2, padx=(0,8), pady=8, sticky="w")
+    ctk.CTkLabel(frame_inputs, text="Altura (cm):", font=("Segoe UI", 13)).grid(
+        row=0, column=2, padx=(0, 8), pady=8, sticky="w")
     entry_altura = ctk.CTkEntry(frame_inputs, width=110, height=36)
-    entry_altura.grid(row=0, column=3, padx=(0,20), pady=8)
+    entry_altura.grid(row=0, column=3, padx=(0, 20), pady=8)
 
-    ctk.CTkLabel(frame_inputs, text="IMC:", font=("Segoe UI", 13)).grid(row=0, column=4, padx=(0,8), pady=8, sticky="w")
+    ctk.CTkLabel(frame_inputs, text="IMC:", font=("Segoe UI", 13)).grid(
+        row=0, column=4, padx=(0, 8), pady=8, sticky="w")
     lbl_imc = ctk.CTkLabel(frame_inputs, text="—", font=("Segoe UI", 15, "bold"),
                             text_color="#00D1FF", width=160)
-    lbl_imc.grid(row=0, column=5, padx=(0,20), pady=8)
+    lbl_imc.grid(row=0, column=5, padx=(0, 20), pady=8)
 
-    ctk.CTkLabel(frame_inputs, text="Notas:", font=("Segoe UI", 13)).grid(row=0, column=6, padx=(0,8), pady=8, sticky="w")
+    ctk.CTkLabel(frame_inputs, text="Notas:", font=("Segoe UI", 13)).grid(
+        row=0, column=6, padx=(0, 8), pady=8, sticky="w")
     entry_notas_m = ctk.CTkEntry(frame_inputs, width=200, height=36)
     entry_notas_m.grid(row=0, column=7, pady=8)
 
@@ -276,17 +359,17 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
     style.map("Ficha.Treeview", background=[("selected", "#1f6aa5")],
               foreground=[("selected", "white")])
 
-    columnas = ("ID", "Fecha", "Peso (kg)", "Altura (cm)", "IMC", "Notas")
+    columnas_hist = ("ID", "Fecha", "Peso (kg)", "Altura (cm)", "IMC", "Notas")
     tabla_hist = ttk.Treeview(tabla_container, style="Ficha.Treeview",
-                               columns=columnas, show="headings", height=8)
+                               columns=columnas_hist, show="headings", height=8)
+    for col in columnas_hist:
+        tabla_hist.heading(col, text=col)
     tabla_hist.column("ID",          anchor="center", width=50)
     tabla_hist.column("Fecha",       anchor="center", width=110)
     tabla_hist.column("Peso (kg)",   anchor="center", width=100)
     tabla_hist.column("Altura (cm)", anchor="center", width=110)
     tabla_hist.column("IMC",         anchor="center", width=180)
     tabla_hist.column("Notas",       anchor="w",      width=300)
-    for col in columnas:
-        tabla_hist.heading(col, text=col)
     tabla_hist.pack(fill="x", expand=True)
 
     def cargar_historial():
@@ -319,3 +402,11 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
         height=38, fg_color="#C0392B", hover_color="#922B21",
         command=eliminar_medida_click
     ).pack(anchor="e", padx=20, pady=(5, 18))
+
+
+# ── Helper ────────────────────────────────────────────────────────────────────
+def _safe_float(val: str):
+    try:
+        return float(str(val).replace(",", ".").strip())
+    except Exception:
+        return None

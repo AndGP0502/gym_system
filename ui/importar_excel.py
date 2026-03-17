@@ -1,308 +1,523 @@
-import customtkinter as ctk
-from tkinter import ttk, messagebox, filedialog
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
+from tkinter import filedialog, messagebox
 import openpyxl
 import sqlite3
 import os
+from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, "..", "gym.db")
+
+# ── Planes FIVGYM ─────────────────────────────────────────────────────────────
+PLANES_FIVGYM = {
+    "MENSUAL /30 DIAS":              {"duracion": 30,  "precio": 30},
+    "TRIMESTRAL / 90 DIAS":          {"duracion": 90,  "precio": 80},
+    "SEMESTRAL / 180 DIAS":          {"duracion": 180, "precio": 150},
+    "SEMESTRAL / 188 DIAS":          {"duracion": 188, "precio": 150},
+    "ANUAL / 365 DIAS":              {"duracion": 365, "precio": 250},
+    "PLAN PAREJA / X2 / 30 DIAS":    {"duracion": 30,  "precio": 25},
+    "PLAN ESTUDIANTIL / 30 DIAS":    {"duracion": 30,  "precio": 25},
+    "PLAN 3RA EDAD / 30 DIAS / 50%": {"duracion": 30,  "precio": 20},
+}
 
 
 def _con():
     return sqlite3.connect(DB_PATH)
 
 
-def importar_clientes_excel(ruta: str) -> dict:
-    wb = openpyxl.load_workbook(ruta, data_only=True)
+def _init_tablas_extra():
+    """Asegura que existan las columnas y tablas extra que necesita la importación."""
+    con = _con()
+    # Columna edad en clientes
+    for col, tipo in [("edad", "REAL"), ("fecha_nacimiento", "TEXT"), ("sexo", "TEXT")]:
+        try:
+            con.execute(f"ALTER TABLE clientes ADD COLUMN {col} {tipo}")
+        except sqlite3.OperationalError:
+            pass
+    # Tabla ficha_cliente con condiciones médicas
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS ficha_cliente (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id      INTEGER UNIQUE,
+            objetivo        TEXT,
+            estado_fisico   TEXT,
+            condiciones     TEXT,
+            notas           TEXT,
+            foto_ruta       TEXT,
+            FOREIGN KEY(cliente_id) REFERENCES clientes(id)
+        )
+    """)
+    # Columnas extra en ficha_cliente
+    for col, tipo in [
+        ("peso_kg",        "REAL"),
+        ("altura_m",       "REAL"),
+        ("cir_abdominal",  "REAL"),
+        ("status_fisico",  "TEXT"),
+        ("objetivo_2",     "TEXT"),
+        ("peso_ideal",     "REAL"),
+        ("lesion",         "TEXT"),
+        ("cardiovascular", "TEXT"),
+        ("asfixia",        "TEXT"),
+        ("asmatico",       "TEXT"),
+        ("medicacion",     "TEXT"),
+        ("mareos",         "TEXT"),
+    ]:
+        try:
+            con.execute(f"ALTER TABLE ficha_cliente ADD COLUMN {col} {tipo}")
+        except sqlite3.OperationalError:
+            pass
+    con.commit()
+    con.close()
 
-    if "Clientes" not in wb.sheetnames:
-        return {"insertados": 0, "omitidos": 0, "errores": ["No se encontró la hoja 'Clientes'."]}
+_init_tablas_extra()
 
-    ws  = wb["Clientes"]
+
+def _parsear_fecha(valor) -> str | None:
+    if valor is None:
+        return None
+    if isinstance(valor, datetime):
+        if valor.year < 1990:
+            return None
+        return valor.strftime("%Y-%m-%d")
+    txt = str(valor).strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(txt, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
+
+def _parsear_numero(valor) -> float | None:
+    if valor is None:
+        return None
+    try:
+        return float(str(valor).replace(",", ".").strip())
+    except Exception:
+        return None
+
+
+def _obtener_o_crear_membresia(nombre_plan: str, precio: float, duracion: int) -> int:
     con = _con()
     cur = con.cursor()
 
-    insertados = 0
-    omitidos   = 0
-    errores    = []
+    # Detectar qué columna usa esta BD para el nombre del plan
+    cur.execute("PRAGMA table_info(membresias)")
+    cols = [row[1] for row in cur.fetchall()]
+    col_nombre = "nombre_plan" if "nombre_plan" in cols else "nombre"
 
-    for row in ws.iter_rows(min_row=3, values_only=True):
-        if not any(row):
-            continue
-        try:
-            nombre   = str(row[0]).strip() if row[0] else ""
-            cedula   = str(row[1]).strip() if row[1] else ""
-            telefono = str(row[2]).strip() if row[2] else ""
-            fecha    = str(row[3]).strip() if row[3] else ""
+    cur.execute(f"SELECT id FROM membresias WHERE {col_nombre} = ?", (nombre_plan,))
+    fila = cur.fetchone()
+    if fila:
+        con.close()
+        return fila[0]
 
-            if hasattr(row[3], "strftime"):
-                fecha = row[3].strftime("%d/%m/%Y")
-
-            if not nombre or not cedula or not telefono or not fecha:
-                omitidos += 1
-                errores.append(f"Fila incompleta omitida: {row}")
-                continue
-
-            cur.execute("SELECT id FROM clientes WHERE cedula = ?", (cedula,))
-            if cur.fetchone():
-                omitidos += 1
-                errores.append(f"Cédula duplicada omitida: {cedula} ({nombre})")
-                continue
-
-            cur.execute(
-                "INSERT INTO clientes(nombre, cedula, telefono, fecha_registro) VALUES (?,?,?,?)",
-                (nombre, cedula, telefono, fecha)
-            )
-            insertados += 1
-
-        except Exception as e:
-            errores.append(f"Error en fila: {e}")
-            omitidos += 1
-
+    cur.execute(
+        f"INSERT INTO membresias ({col_nombre}, precio, duracion_dias) VALUES (?, ?, ?)",
+        (nombre_plan, precio, duracion)
+    )
+    id_mem = cur.lastrowid
     con.commit()
     con.close()
-    return {"insertados": insertados, "omitidos": omitidos, "errores": errores}
+    return id_mem
 
 
-def importar_membresias_excel(ruta: str) -> dict:
+# ── IMPORTAR PLANTILLA ESTÁNDAR ───────────────────────────────────────────────
+
+def importar_plantilla(ruta: str) -> dict:
     wb = openpyxl.load_workbook(ruta, data_only=True)
+    resultados = {"clientes": 0, "membresias": 0, "errores": []}
 
-    if "Membresias" not in wb.sheetnames:
-        return {"insertados": 0, "omitidos": 0, "errores": ["No se encontró la hoja 'Membresias'."]}
+    if "Membresias" in wb.sheetnames:
+        ws = wb["Membresias"]
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            if i < 2: continue
+            nombre, precio, duracion = row[0], row[1], row[2]
+            if not nombre: continue
+            try:
+                _obtener_o_crear_membresia(str(nombre).strip(), float(precio or 0), int(duracion or 30))
+                resultados["membresias"] += 1
+            except Exception as e:
+                resultados["errores"].append(f"Membresía '{nombre}': {e}")
 
-    ws  = wb["Membresias"]
+    if "Clientes" in wb.sheetnames:
+        ws = wb["Clientes"]
+        con = _con()
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            if i < 2: continue
+            nombre, cedula, telefono, fecha = row[0], row[1], row[2], row[3]
+            if not nombre: continue
+            fecha_str = _parsear_fecha(fecha) or datetime.now().strftime("%d/%m/%Y")
+            try:
+                con.execute(
+                    "INSERT OR IGNORE INTO clientes (nombre, cedula, telefono, fecha_registro) VALUES (?,?,?,?)",
+                    (str(nombre).strip(), str(cedula or "").strip(), str(telefono or "").strip(), fecha_str)
+                )
+                resultados["clientes"] += 1
+            except Exception as e:
+                resultados["errores"].append(f"Cliente '{nombre}': {e}")
+        con.commit()
+        con.close()
+
+    return resultados
+
+
+# ── IMPORTAR TABLA FIVGYM ─────────────────────────────────────────────────────
+
+def importar_fivgym(ruta: str) -> dict:
+    wb = openpyxl.load_workbook(ruta, data_only=True)
+    resultados = {"clientes": 0, "fichas": 0, "suscripciones": 0, "errores": []}
+
+    # ── Una sola conexión para todo el proceso ────────────────────────────────
     con = _con()
-    cur = con.cursor()
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA foreign_keys = OFF")
 
-    insertados = 0
-    omitidos   = 0
-    errores    = []
+    # Detectar columna nombre de membresías
+    cols_mem = [r[1] for r in con.execute("PRAGMA table_info(membresias)").fetchall()]
+    col_nombre_mem = "nombre_plan" if "nombre_plan" in cols_mem else "nombre"
 
-    for row in ws.iter_rows(min_row=3, values_only=True):
-        if not any(row):
-            continue
+    def obtener_o_crear_mem_local(nombre_plan, precio, duracion):
+        fila = con.execute(
+            f"SELECT id FROM membresias WHERE {col_nombre_mem} = ?", (nombre_plan,)
+        ).fetchone()
+        if fila:
+            return fila[0]
+        cur = con.execute(
+            f"INSERT INTO membresias ({col_nombre_mem}, precio, duracion_dias) VALUES (?,?,?)",
+            (nombre_plan, precio, duracion)
+        )
+        return cur.lastrowid
+
+    # ── PASO 1: leer DATOS INFORMATIVOS ──────────────────────────────────────
+    ws_info = wb["DATOS INFORMATIVOS"]
+    info_por_num = {}
+    for i, row in enumerate(ws_info.iter_rows(values_only=True)):
+        if i < 3: continue
+        num = row[0]
+        if not num or not isinstance(num, int): break
+        nombre = str(row[3] or "").strip()
+        if not nombre or nombre == "0": continue
+        fecha_nac = _parsear_fecha(row[4])
+        edad_raw  = row[5]
+        edad = round(float(edad_raw), 1) if edad_raw and isinstance(edad_raw, (int, float)) and float(edad_raw) < 120 else None
+        info_por_num[num] = {
+            "nombre":         nombre,
+            "telefono":       str(int(row[1])).strip() if row[1] else "",
+            "cedula":         str(int(row[2])).strip() if row[2] else "",
+            "fecha_nac":      fecha_nac,
+            "edad":           edad,
+            "sexo":           str(row[6] or "").strip(),
+            "lesion":         str(row[7]  or "NO").strip(),
+            "cardiovascular": str(row[8]  or "NO").strip(),
+            "asfixia":        str(row[9]  or "NO").strip(),
+            "asmatico":       str(row[10] or "NO").strip(),
+            "medicacion":     str(row[11] or "NO").strip(),
+            "mareos":         str(row[12] or "NO").strip(),
+        }
+
+    # ── PASO 2: leer DATOS FISICOS ────────────────────────────────────────────
+    ws_fis = wb["DATOS FISICOS"]
+    fisicos_por_num = {}
+    for i, row in enumerate(ws_fis.iter_rows(values_only=True)):
+        if i < 3: continue
+        num = row[0]
+        if not num or not isinstance(num, int): break
+        fisicos_por_num[num] = {
+            "peso_kg":       _parsear_numero(row[3]),
+            "altura_m":      _parsear_numero(row[4]),
+            "cir_abdominal": _parsear_numero(row[5]),
+            "status":        str(row[6] or "").strip(),
+            "objetivo1":     str(row[7] or "").strip(),
+            "objetivo2":     str(row[8] or "").strip(),
+            "peso_ideal":    _parsear_numero(row[9]),
+        }
+
+    # ── PASO 3: leer fechas reales de PLANES Y PAGOS ──────────────────────────
+    ws_pagos = wb["PLANES Y PAGOS"]
+    fecha_real_por_num = {}
+    suscripciones_excel = []
+    for i, row in enumerate(ws_pagos.iter_rows(values_only=True)):
+        if i < 3: continue
+        num = row[0]
+        if not num or not isinstance(num, int): break
+        nombre = str(row[1] or "").strip()
+        plan   = str(row[2] or "").strip()
+        fecha_inicio = _parsear_fecha(row[6])
+        fecha_fin    = _parsear_fecha(row[7])
+        if fecha_inicio and num not in fecha_real_por_num:
+            fecha_real_por_num[num] = fecha_inicio
+        if plan and nombre and fecha_inicio:
+            suscripciones_excel.append({
+                "num":    num,
+                "nombre": nombre,
+                "plan":   plan,
+                "pago1":  float(row[3] or 0),
+                "pago2":  float(row[4] or 0),
+                "total":  float(row[5] or 0),
+                "inicio": fecha_inicio,
+                "fin":    fecha_fin,
+            })
+
+    # ── PASO 4: insertar clientes ─────────────────────────────────────────────
+    clientes_map = {}
+    for num, info in info_por_num.items():
+        fecha_inicio_real = fecha_real_por_num.get(num)
+        if fecha_inicio_real:
+            try:
+                dt = datetime.strptime(fecha_inicio_real, "%Y-%m-%d")
+                fecha_reg = dt.strftime("%d/%m/%Y")
+            except Exception:
+                fecha_reg = fecha_inicio_real
+        else:
+            fecha_reg = datetime.now().strftime("%d/%m/%Y")
+
         try:
-            nombre_plan   = str(row[0]).strip() if row[0] else ""
-            precio        = float(row[1]) if row[1] is not None else None
-            duracion_dias = int(row[2])   if row[2] is not None else None
+            con.execute("""
+                INSERT OR IGNORE INTO clientes
+                    (nombre, cedula, telefono, fecha_registro, edad, fecha_nacimiento, sexo)
+                VALUES (?,?,?,?,?,?,?)
+            """, (info["nombre"], info["cedula"], info["telefono"],
+                  fecha_reg, info["edad"], info["fecha_nac"], info["sexo"]))
 
-            if not nombre_plan or precio is None or duracion_dias is None:
-                omitidos += 1
-                errores.append(f"Fila incompleta omitida: {row}")
-                continue
-
-            # Verificar duplicado por nombre_plan
-            cur.execute("SELECT id FROM membresias WHERE nombre_plan = ?", (nombre_plan,))
-            if cur.fetchone():
-                omitidos += 1
-                errores.append(f"Membresía duplicada omitida: {nombre_plan}")
-                continue
-
-            cur.execute(
-                "INSERT INTO membresias(nombre_plan, precio, duracion_dias) VALUES (?,?,?)",
-                (nombre_plan, precio, duracion_dias)
-            )
-            insertados += 1
-
+            fila = con.execute(
+                "SELECT id FROM clientes WHERE nombre = ? ORDER BY id DESC LIMIT 1",
+                (info["nombre"],)
+            ).fetchone()
+            if fila:
+                clientes_map[num] = fila[0]
+                resultados["clientes"] += 1
         except Exception as e:
-            errores.append(f"Error en fila: {e}")
-            omitidos += 1
+            resultados["errores"].append(f"Cliente '{info['nombre']}': {e}")
 
+    # ── PASO 5: insertar fichas ───────────────────────────────────────────────
+    for num, id_cliente in clientes_map.items():
+        info = info_por_num.get(num, {})
+        fis  = fisicos_por_num.get(num, {})
+        condiciones_list = []
+        if info.get("lesion",         "").upper() == "SI": condiciones_list.append("Lesion muscular/articular")
+        if info.get("cardiovascular", "").upper() == "SI": condiciones_list.append("Enfermedad cardiovascular")
+        if info.get("asfixia",        "").upper() == "SI": condiciones_list.append("Se asfixia con facilidad")
+        if info.get("asmatico",       "").upper() == "SI": condiciones_list.append("Asmatico/Epileptico/Diabetico")
+        if info.get("medicacion",     "").upper() == "SI": condiciones_list.append("Toma medicacion")
+        if info.get("mareos",         "").upper() == "SI": condiciones_list.append("Mareos/desmayos al ejercitar")
+        condiciones_str = ", ".join(condiciones_list) if condiciones_list else "Ninguna"
+        try:
+            con.execute("""
+                INSERT INTO ficha_cliente
+                    (cliente_id, objetivo, estado_fisico, condiciones, notas, foto_ruta,
+                     peso_kg, altura_m, cir_abdominal, status_fisico, objetivo_2, peso_ideal,
+                     lesion, cardiovascular, asfixia, asmatico, medicacion, mareos)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(cliente_id) DO UPDATE SET
+                    objetivo=excluded.objetivo, estado_fisico=excluded.estado_fisico,
+                    condiciones=excluded.condiciones, peso_kg=excluded.peso_kg,
+                    altura_m=excluded.altura_m, cir_abdominal=excluded.cir_abdominal,
+                    status_fisico=excluded.status_fisico, objetivo_2=excluded.objetivo_2,
+                    peso_ideal=excluded.peso_ideal, lesion=excluded.lesion,
+                    cardiovascular=excluded.cardiovascular, asfixia=excluded.asfixia,
+                    asmatico=excluded.asmatico, medicacion=excluded.medicacion,
+                    mareos=excluded.mareos
+            """, (
+                id_cliente,
+                fis.get("objetivo1", ""), fis.get("status", ""),
+                condiciones_str, "", None,
+                fis.get("peso_kg"), fis.get("altura_m"), fis.get("cir_abdominal"),
+                fis.get("status", ""), fis.get("objetivo2", ""), fis.get("peso_ideal"),
+                info.get("lesion","NO"), info.get("cardiovascular","NO"),
+                info.get("asfixia","NO"), info.get("asmatico","NO"),
+                info.get("medicacion","NO"), info.get("mareos","NO"),
+            ))
+            resultados["fichas"] += 1
+        except Exception as e:
+            resultados["errores"].append(f"Ficha {id_cliente}: {e}")
+
+    # ── PASO 6: crear membresías e insertar suscripciones ────────────────────
+    for sus in suscripciones_excel:
+        num    = sus["num"]
+        nombre = sus["nombre"]
+        plan   = sus["plan"]
+
+        id_cliente = clientes_map.get(num)
+        if not id_cliente:
+            fila = con.execute(
+                "SELECT id FROM clientes WHERE nombre = ? ORDER BY id DESC LIMIT 1",
+                (nombre,)
+            ).fetchone()
+            id_cliente = fila[0] if fila else None
+
+        if not id_cliente:
+            resultados["errores"].append(f"Fila {num} '{nombre}': cliente no encontrado")
+            continue
+
+        info_plan = PLANES_FIVGYM.get(plan, {"duracion": 30, "precio": sus["total"]})
+        try:
+            id_mem = obtener_o_crear_mem_local(plan, info_plan["precio"], info_plan["duracion"])
+        except Exception as e:
+            resultados["errores"].append(f"Membresia '{plan}': {e}")
+            continue
+
+        # FIX: si no hay pagos registrados en el Excel, pagado = 0
+        # Antes: si pago1+pago2 = 0, se asignaba total como pagado (incorrecto)
+        suma_pagos = sus["pago1"] + sus["pago2"]
+        pagado     = suma_pagos  # 0 si no hay pagos, o el monto real si los hay
+        pendiente  = max(0, sus["total"] - pagado)
+
+        try:
+            con.execute("""
+                INSERT OR IGNORE INTO suscripciones
+                    (cliente_id, membresia_id, fecha_inicio, fecha_vencimiento,
+                     precio_total, pagado, pendiente)
+                VALUES (?,?,?,?,?,?,?)
+            """, (id_cliente, id_mem, sus["inicio"], sus["fin"],
+                  sus["total"], pagado, pendiente))
+            resultados["suscripciones"] += 1
+        except Exception as e:
+            resultados["errores"].append(f"Suscripcion fila {num} '{nombre}': {e}")
+
+    con.execute("PRAGMA foreign_keys = ON")
     con.commit()
     con.close()
-    return {"insertados": insertados, "omitidos": omitidos, "errores": errores}
+    return resultados
 
+
+# ── DETECTAR FORMATO ──────────────────────────────────────────────────────────
+
+def detectar_formato(ruta: str) -> str:
+    wb = openpyxl.load_workbook(ruta, data_only=True)
+    hojas = wb.sheetnames
+    if "DATOS INFORMATIVOS" in hojas and "PLANES Y PAGOS" in hojas:
+        return "fivgym"
+    if "Clientes" in hojas or "Membresias" in hojas:
+        return "plantilla"
+    return "desconocido"
+
+
+# ── VENTANA DE IMPORTACIÓN ────────────────────────────────────────────────────
 
 def abrir_ventana_importar(parent):
+    popup = ttk.Toplevel()
+    popup.title("Importar Excel")
+    popup.geometry("500x360")
+    popup.resizable(False, False)
 
-    ventana = ctk.CTkToplevel(parent)
-    ventana.title("Importar desde Excel")
-    ventana.geometry("700x500")
-    ventana.resizable(False, False)
-    ventana.attributes("-topmost", True)
-    ventana.after(300, lambda: ventana.attributes("-topmost", False))
-    ventana.lift()
-    ventana.focus_force()
-    ventana.grab_set()
+    parent.update_idletasks()
+    x = parent.winfo_x() + (parent.winfo_width()  // 2) - 250
+    y = parent.winfo_y() + (parent.winfo_height() // 2) - 180
+    popup.geometry(f"+{x}+{y}")
+    popup.lift()
 
-    def traer_al_frente():
-        ventana.attributes("-topmost", True)
-        ventana.lift()
-        ventana.focus_force()
-        ventana.after(200, lambda: ventana.attributes("-topmost", False))
+    # ── Cabecera fija ────────────────────────────────────────────────────────
+    frame_header = ttk.Frame(popup, padding=(20, 16, 20, 0))
+    frame_header.pack(fill="x")
 
-    # Layout: sidebar izquierdo fijo + área derecha con log
-    frame_principal = ctk.CTkFrame(ventana, fg_color="transparent")
-    frame_principal.pack(fill="both", expand=True, padx=20, pady=20)
-    frame_principal.columnconfigure(0, weight=0)
-    frame_principal.columnconfigure(1, weight=1)
-    frame_principal.rowconfigure(0, weight=1)
+    ttk.Label(frame_header, text="Importar Excel",
+              font=("Segoe UI", 16, "bold")).pack()
+    ttk.Label(frame_header,
+              text="Selecciona un archivo Excel. El formato se detecta automaticamente.",
+              font=("Segoe UI", 10), justify="center").pack(pady=(4, 10))
+    ttk.Separator(frame_header).pack(fill="x")
 
-    # ── Panel izquierdo (controles) ──────────────────────────────────────────
-    panel_izq = ctk.CTkFrame(frame_principal, corner_radius=18, width=380)
-    panel_izq.grid(row=0, column=0, sticky="nsew", padx=(0, 15))
-    panel_izq.pack_propagate(False)
-    panel_izq.grid_propagate(False)
+    # ── Zona con scrollbar ───────────────────────────────────────────────────
+    scroll_frame = ttk.Frame(popup)
+    scroll_frame.pack(fill="both", expand=True)
 
-    ctk.CTkLabel(
-        panel_izq,
-        text="Importar desde Excel",
-        font=("Segoe UI", 22, "bold")
-    ).pack(anchor="w", padx=20, pady=(20, 5))
+    sb = ttk.Scrollbar(scroll_frame, orient="vertical")
+    sb.pack(side="right", fill="y")
 
-    ctk.CTkLabel(
-        panel_izq,
-        text="Selecciona el archivo y las hojas a importar",
-        font=("Segoe UI", 12),
-        text_color="gray60"
-    ).pack(anchor="w", padx=20, pady=(0, 20))
+    canvas_pop = ttk.Canvas(scroll_frame, highlightthickness=0, yscrollcommand=sb.set)
+    canvas_pop.pack(side="left", fill="both", expand=True)
+    sb.configure(command=canvas_pop.yview)
 
-    # Selector de archivo
-    ctk.CTkLabel(panel_izq, text="Archivo Excel (.xlsx)", font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=20)
+    inner = ttk.Frame(canvas_pop, padding=(20, 14, 20, 14))
+    win_id = canvas_pop.create_window((0, 0), window=inner, anchor="nw")
 
-    frame_ruta = ctk.CTkFrame(panel_izq, fg_color="transparent")
-    frame_ruta.pack(fill="x", padx=20, pady=(5, 20))
+    def _ajustar(event):
+        canvas_pop.configure(scrollregion=canvas_pop.bbox("all"))
+        canvas_pop.itemconfig(win_id, width=canvas_pop.winfo_width())
+    inner.bind("<Configure>", _ajustar)
 
-    entry_ruta = ctk.CTkEntry(frame_ruta, height=38, state="readonly")
-    entry_ruta.pack(side="left", fill="x", expand=True, padx=(0, 8))
+    ttk.Label(inner, text="Formatos soportados:",
+              font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 6))
+    ttk.Label(inner, text="  Plantilla estandar  (plantilla_gym.xlsx)",
+              font=("Segoe UI", 10)).pack(anchor="w", pady=2)
+    ttk.Label(inner, text="  Formato FIVGYM  (TABLA_FIVGYM.xlsx) — importa clientes,",
+              font=("Segoe UI", 10)).pack(anchor="w")
+    ttk.Label(inner, text="  fichas, datos fisicos, condiciones medicas y suscripciones.",
+              font=("Segoe UI", 10)).pack(anchor="w", pady=(0, 6))
 
-    ruta_seleccionada = {"valor": ""}
+    ttk.Separator(inner).pack(fill="x", pady=10)
 
-    def seleccionar_archivo():
+    lbl_estado = ttk.Label(inner, text="", font=("Segoe UI", 10), justify="center")
+    lbl_estado.pack(pady=(0, 10))
+
+    def seleccionar_e_importar():
         ruta = filedialog.askopenfilename(
-            title="Seleccionar archivo Excel",
-            filetypes=[("Excel files", "*.xlsx *.xls")],
-            parent=ventana
+            parent=popup,
+            title="Selecciona el archivo Excel",
+            filetypes=[("Excel", "*.xlsx *.xls"), ("Todos", "*.*")]
         )
-        if ruta:
-            ruta_seleccionada["valor"] = ruta
-            entry_ruta.configure(state="normal")
-            entry_ruta.delete(0, "end")
-            entry_ruta.insert(0, ruta)
-            entry_ruta.configure(state="readonly")
-            lbl_estado.configure(text="")
-        traer_al_frente()
-
-    ctk.CTkButton(
-        frame_ruta,
-        text="Buscar",
-        width=90, height=38,
-        command=seleccionar_archivo
-    ).pack(side="right")
-
-    # Checkboxes
-    ctk.CTkLabel(panel_izq, text="¿Qué deseas importar?", font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=20)
-
-    var_clientes   = ctk.BooleanVar(value=True)
-    var_membresias = ctk.BooleanVar(value=True)
-
-    ctk.CTkCheckBox(
-        panel_izq,
-        text="Clientes  (hoja 'Clientes')",
-        variable=var_clientes,
-        font=("Segoe UI", 13)
-    ).pack(anchor="w", padx=20, pady=(10, 5))
-
-    ctk.CTkCheckBox(
-        panel_izq,
-        text="Membresías  (hoja 'Membresias')",
-        variable=var_membresias,
-        font=("Segoe UI", 13)
-    ).pack(anchor="w", padx=20, pady=(0, 25))
-
-    # Estado
-    lbl_estado = ctk.CTkLabel(panel_izq, text="", font=("Segoe UI", 12), text_color="#00D1FF")
-    lbl_estado.pack(anchor="w", padx=20, pady=(0, 15))
-
-    # Botón importar — siempre visible en el panel izquierdo
-    def importar():
-        ruta = ruta_seleccionada["valor"]
-
         if not ruta:
-            messagebox.showwarning("Sin archivo", "Selecciona un archivo Excel primero.", parent=ventana)
-            traer_al_frente()
             return
 
-        if not var_clientes.get() and not var_membresias.get():
-            messagebox.showwarning("Sin selección", "Selecciona al menos una opción.", parent=ventana)
-            traer_al_frente()
-            return
+        lbl_estado.configure(text="Procesando...")
+        popup.update()
 
-        limpiar_log()
-        total_insertados = 0
-        total_omitidos   = 0
+        try:
+            formato = detectar_formato(ruta)
 
-        if var_clientes.get():
-            escribir_log("── Importando Clientes ──────────────────")
-            try:
-                res = importar_clientes_excel(ruta)
-                escribir_log(f"✅ Insertados: {res['insertados']}")
-                escribir_log(f"⚠️  Omitidos:   {res['omitidos']}")
-                for err in res["errores"]:
-                    escribir_log(f"   → {err}")
-                total_insertados += res["insertados"]
-                total_omitidos   += res["omitidos"]
-            except Exception as e:
-                escribir_log(f"❌ Error: {e}")
+            if formato == "plantilla":
+                res = importar_plantilla(ruta)
+                msg = (
+                    f"Importacion completada:\n\n"
+                    f"  Clientes importados:   {res['clientes']}\n"
+                    f"  Membresias importadas: {res['membresias']}\n"
+                )
+            elif formato == "fivgym":
+                res = importar_fivgym(ruta)
+                msg = (
+                    f"Importacion completada:\n\n"
+                    f"  Clientes importados:      {res['clientes']}\n"
+                    f"  Fichas importadas:        {res['fichas']}\n"
+                    f"  Suscripciones importadas: {res['suscripciones']}\n"
+                )
+            else:
+                lbl_estado.configure(text="Formato no reconocido.")
+                messagebox.showerror(
+                    "Formato no reconocido",
+                    "El archivo no es compatible.\nUsa la plantilla estandar o TABLA_FIVGYM.",
+                    parent=popup
+                )
+                return
 
-        if var_membresias.get():
-            escribir_log("── Importando Membresías ────────────────")
-            try:
-                res = importar_membresias_excel(ruta)
-                escribir_log(f"✅ Insertados: {res['insertados']}")
-                escribir_log(f"⚠️  Omitidos:   {res['omitidos']}")
-                for err in res["errores"]:
-                    escribir_log(f"   → {err}")
-                total_insertados += res["insertados"]
-                total_omitidos   += res["omitidos"]
-            except Exception as e:
-                escribir_log(f"❌ Error: {e}")
+            errores = res.get("errores", [])
+            if errores:
+                msg += f"\nAdvertencias ({len(errores)}):\n"
+                for e in errores[:5]:
+                    msg += f"  - {e}\n"
+                if len(errores) > 5:
+                    msg += f"  ... y {len(errores) - 5} mas.\n"
 
-        escribir_log("─────────────────────────────────────────")
-        escribir_log(f"TOTAL insertados: {total_insertados}  |  omitidos: {total_omitidos}")
-        lbl_estado.configure(text=f"✅ Completado: {total_insertados} registros nuevos.")
-        traer_al_frente()
+            lbl_estado.configure(text="Importacion exitosa")
+            messagebox.showinfo("Listo", msg, parent=popup)
 
-    ctk.CTkButton(
-        panel_izq,
-        text="⬆ Importar datos",
-        height=48,
-        font=("Segoe UI", 15, "bold"),
-        fg_color="#1a7a1a",
-        hover_color="#145214",
-        command=importar
-    ).pack(fill="x", padx=20, pady=(0, 15))
+        except Exception as e:
+            lbl_estado.configure(text=f"Error: {e}")
+            messagebox.showerror("Error", f"No se pudo importar:\n{e}", parent=popup)
 
-    ctk.CTkButton(
-        panel_izq,
-        text="✕ Cerrar",
-        height=40,
-        fg_color="#2A2A2A",
-        hover_color="#3A3A3A",
-        command=ventana.destroy
-    ).pack(fill="x", padx=20, pady=(0, 20))
+    ttk.Button(
+        inner,
+        text="Seleccionar archivo Excel",
+        bootstyle="primary",
+        width=28,
+        padding=10,
+        command=seleccionar_e_importar
+    ).pack(pady=(0, 8))
 
-    # ── Panel derecho (log de resultados) ────────────────────────────────────
-    panel_der = ctk.CTkFrame(frame_principal, corner_radius=18)
-    panel_der.grid(row=0, column=1, sticky="nsew")
-
-    ctk.CTkLabel(
-        panel_der,
-        text="Resultado de la importación",
-        font=("Segoe UI", 16, "bold")
-    ).pack(anchor="w", padx=20, pady=(20, 10))
-
-    log_box = ctk.CTkTextbox(panel_der, font=("Consolas", 12))
-    log_box.pack(fill="both", expand=True, padx=15, pady=(0, 20))
-    log_box.configure(state="disabled")
-
-    def escribir_log(texto: str):
-        log_box.configure(state="normal")
-        log_box.insert("end", texto + "\n")
-        log_box.see("end")
-        log_box.configure(state="disabled")
-
-    def limpiar_log():
-        log_box.configure(state="normal")
-        log_box.delete("1.0", "end")
-        log_box.configure(state="disabled")
+    # ── Footer fijo ──────────────────────────────────────────────────────────
+    frame_footer = ttk.Frame(popup, padding=(20, 8, 20, 14))
+    frame_footer.pack(fill="x")
+    ttk.Separator(frame_footer).pack(fill="x", pady=(0, 10))
+    ttk.Button(frame_footer, text="Cerrar", bootstyle="secondary-outline",
+               width=12, command=popup.destroy).pack()

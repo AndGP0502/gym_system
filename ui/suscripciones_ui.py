@@ -577,12 +577,16 @@ def abrir_ventana_suscripciones(parent):
 
         try:
             con = sqlite3.connect(DB_PATH)
-            for t in ["pagos", "suscripciones", "alertas_enviadas", "membresias", "clientes"]:
+            # Desactivar foreign keys temporalmente para poder borrar en cualquier orden
+            con.execute("PRAGMA foreign_keys = OFF")
+            # Orden correcto: primero tablas dependientes, luego las principales
+            for t in ["pagos", "alertas_enviadas", "suscripciones", "membresias", "clientes"]:
                 try:
                     con.execute(f"DELETE FROM {t}")
                     con.execute(f"DELETE FROM sqlite_sequence WHERE name='{t}'")
                 except sqlite3.OperationalError:
                     pass
+            con.execute("PRAGMA foreign_keys = ON")
             con.commit()
             con.close()
 

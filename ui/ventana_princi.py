@@ -9,7 +9,7 @@ from ui.membresias_ui import abrir_ventana_membresias
 
 from modulos.clientes import contar_clientes
 from modulos.membresias import contar_membresias
-from modulos.suscripciones import contar_suscripciones_vencidas, contar_clientes_activos
+from modulos.suscripciones import contar_suscripciones_vencidas, contar_clientes_activos, ver_clientes_activos_detalle
 from modulos.backup_db import crear_backup, restaurar_backup
 from modulos.graficas import grafica_clientes
 from ui.importar_excel import abrir_ventana_importar
@@ -118,18 +118,18 @@ def iniciar_ventana():
         # Si no tienes red social en alguno, pon ("", "")
         contactos = [
             (
-                "👤 André Garzón",
-                "",
-                "+593 983760090",
-                "Facebook",
-                "https://www.facebook.com/",
+                "👤 Nombre Apellido 1",
+                "correo1@ejemplo.com",
+                "+593 99 000 0001",
+                "Instagram: @usuario1",
+                "https://instagram.com/usuario1",
             ),
             (
-                "👤 Dennys Chanchicocha",
-                "",
-                "+593 980844726",
-                "Facebook",
-                "https://www.facebook.com/share/186cb5uQdG/",
+                "👤 Nombre Apellido 2",
+                "correo2@ejemplo.com",
+                "+593 99 000 0002",
+                "LinkedIn: Nombre Apellido 2",
+                "https://linkedin.com/in/usuario2",
             ),
         ]
         # ─────────────────────────────────────────────────────────────────
@@ -264,6 +264,11 @@ def iniciar_ventana():
         command=lambda: abrir_ventana_pagos(ventana), **boton_style
     ).pack(pady=6)
 
+    ttk.Button(
+        sidebar, text="🟢 Clientes Activos", bootstyle="success-outline",
+        command=lambda: abrir_ventana_activos(ventana), **boton_style
+    ).pack(pady=6)
+
     ttk.Separator(sidebar).pack(fill="x", pady=20)
 
     ttk.Button(
@@ -327,7 +332,9 @@ def iniciar_ventana():
 
     def cambiar_logo(event=None):
         from tkinter import filedialog
+        ventana.focus_force()
         ruta_nueva = filedialog.askopenfilename(
+            parent=ventana,
             title="Selecciona el logo del gimnasio",
             filetypes=[("Imagenes", "*.jpg *.jpeg *.png *.bmp *.webp"),
                        ("Todos los archivos", "*.*")]
@@ -460,7 +467,9 @@ def iniciar_ventana():
                                 font=("Segoe UI", 11), foreground="gray")
 
     def cambiar_foto_gimnasio(event=None):
+        ventana.focus_force()
         ruta_nueva = filedialog.askopenfilename(
+            parent=ventana,
             title="Selecciona la foto del gimnasio",
             filetypes=[("Imagenes", "*.jpg *.jpeg *.png *.bmp *.webp"),
                        ("Todos los archivos", "*.*")]
@@ -500,6 +509,90 @@ def iniciar_ventana():
     frame_grafica.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(10, 0), pady=10)
 
     grafica_clientes(frame_grafica)
+
+    # ---------------- CLIENTES ACTIVOS ----------------
+
+    def abrir_ventana_activos(parent):
+        from tkinter import ttk as ttkb
+        import ttkbootstrap as ttk2
+        from datetime import datetime
+
+        popup = ttk2.Toplevel(parent)
+        popup.title("Clientes Activos")
+        popup.geometry("900x550")
+        popup.resizable(True, True)
+        parent.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width()  // 2) - 450
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - 275
+        popup.geometry(f"+{x}+{y}")
+        popup.lift()
+
+        frame = ttk2.Frame(popup, padding=20)
+        frame.pack(fill="both", expand=True)
+
+        ttk2.Label(frame, text="Clientes con Suscripción Activa",
+                   font=("Segoe UI", 18, "bold"), bootstyle="success").pack(anchor="w", pady=(0, 4))
+        ttk2.Label(frame, text="Clientes cuya suscripcion no ha vencido a la fecha de hoy.",
+                   font=("Segoe UI", 10), foreground="gray").pack(anchor="w", pady=(0, 14))
+
+        # Tabla
+        tabla_container = ttk2.Frame(frame)
+        tabla_container.pack(fill="both", expand=True)
+
+        columnas = ("ID", "Cliente", "Plan", "Fecha Inicio", "Vence", "Dias Restantes", "Pagado", "Pendiente")
+        tabla_act = ttkb.Treeview(tabla_container, columns=columnas, show="headings", height=18)
+        for col in columnas:
+            tabla_act.heading(col, text=col)
+        tabla_act.column("ID",            width=50,  anchor="center")
+        tabla_act.column("Cliente",       width=200, anchor="w")
+        tabla_act.column("Plan",          width=170, anchor="w")
+        tabla_act.column("Fecha Inicio",  width=110, anchor="center")
+        tabla_act.column("Vence",         width=110, anchor="center")
+        tabla_act.column("Dias Restantes",width=110, anchor="center")
+        tabla_act.column("Pagado",        width=90,  anchor="center")
+        tabla_act.column("Pendiente",     width=90,  anchor="center")
+
+        tabla_act.tag_configure("ok",      background="#b6f2c6", foreground="#0f5132")
+        tabla_act.tag_configure("pronto",  background="#fff3cd", foreground="#664d03")
+
+        sb = ttkb.Scrollbar(tabla_container, orient="vertical", command=tabla_act.yview)
+        tabla_act.configure(yscrollcommand=sb.set)
+        tabla_act.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+
+        # Footer con contador
+        frame_footer = ttk2.Frame(frame, padding=(0, 10, 0, 0))
+        frame_footer.pack(fill="x")
+        lbl_count = ttk2.Label(frame_footer, text="", font=("Segoe UI", 11, "bold"), bootstyle="success")
+        lbl_count.pack(side="left")
+        ttk2.Button(frame_footer, text="Cerrar", bootstyle="secondary-outline",
+                    width=12, command=popup.destroy).pack(side="right")
+
+        def cargar():
+            for fila in tabla_act.get_children():
+                tabla_act.delete(fila)
+            try:
+                datos = ver_clientes_activos_detalle()
+            except Exception:
+                datos = []
+            hoy = datetime.now()
+            count = 0
+            for row in datos:
+                id_s, cliente, plan, inicio, vence, pagado, pendiente = row
+                try:
+                    dias = (datetime.strptime(vence, "%Y-%m-%d") - hoy).days
+                except Exception:
+                    dias = "?"
+                tag = "pronto" if isinstance(dias, int) and dias <= 7 else "ok"
+                tabla_act.insert("", "end", values=(
+                    id_s, cliente, plan, inicio, vence,
+                    f"{dias} dias" if isinstance(dias, int) else dias,
+                    f"${float(pagado):.2f}", f"${float(pendiente):.2f}"
+                ), tags=(tag,))
+                count += 1
+            lbl_count.configure(text=f"Total clientes activos: {count}")
+
+        cargar()
 
     # ---------------- LOOP ----------------
     ventana.mainloop()

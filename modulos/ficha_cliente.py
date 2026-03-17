@@ -3,9 +3,9 @@ import os
 import shutil
 from datetime import datetime
 
-BASE_DIR      = os.path.dirname(os.path.abspath(__file__))
-DB_PATH       = os.path.join(BASE_DIR, "..", "gym.db")
-FOTOS_DIR     = os.path.join(BASE_DIR, "..", "assets", "fotos_clientes")
+BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
+DB_PATH   = os.path.join(BASE_DIR, "..", "gym.db")
+FOTOS_DIR = os.path.join(BASE_DIR, "..", "assets", "fotos_clientes")
 
 
 def _con():
@@ -14,7 +14,6 @@ def _con():
 
 def init_tablas_ficha():
     os.makedirs(FOTOS_DIR, exist_ok=True)
-
     con = _con()
     con.execute("""
         CREATE TABLE IF NOT EXISTS ficha_cliente (
@@ -28,6 +27,25 @@ def init_tablas_ficha():
             FOREIGN KEY(cliente_id) REFERENCES clientes(id)
         )
     """)
+    # Columnas extra — tolerante si ya existen
+    for col, tipo in [
+        ("peso_kg",        "REAL"),
+        ("altura_m",       "REAL"),
+        ("cir_abdominal",  "REAL"),
+        ("status_fisico",  "TEXT"),
+        ("objetivo_2",     "TEXT"),
+        ("peso_ideal",     "REAL"),
+        ("lesion",         "TEXT"),
+        ("cardiovascular", "TEXT"),
+        ("asfixia",        "TEXT"),
+        ("asmatico",       "TEXT"),
+        ("medicacion",     "TEXT"),
+        ("mareos",         "TEXT"),
+    ]:
+        try:
+            con.execute(f"ALTER TABLE ficha_cliente ADD COLUMN {col} {tipo}")
+        except sqlite3.OperationalError:
+            pass
     con.execute("""
         CREATE TABLE IF NOT EXISTS historial_medidas (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,20 +67,15 @@ init_tablas_ficha()
 # ── Foto ──────────────────────────────────────────────────────────────────────
 
 def guardar_foto(cliente_id: int, ruta_origen: str) -> str:
-    """
-    Copia la foto al directorio de fotos del proyecto.
-    Devuelve la ruta relativa guardada.
-    """
     os.makedirs(FOTOS_DIR, exist_ok=True)
-    extension  = os.path.splitext(ruta_origen)[1].lower()
-    nombre     = f"cliente_{cliente_id}{extension}"
+    ext          = os.path.splitext(ruta_origen)[1].lower()
+    nombre       = f"cliente_{cliente_id}{ext}"
     ruta_destino = os.path.join(FOTOS_DIR, nombre)
     shutil.copy2(ruta_origen, ruta_destino)
     return ruta_destino
 
 
 def obtener_foto(cliente_id: int) -> str | None:
-    """Devuelve la ruta de la foto del cliente o None si no tiene."""
     con = _con()
     cur = con.cursor()
     cur.execute("SELECT foto_ruta FROM ficha_cliente WHERE cliente_id = ?", (cliente_id,))
@@ -83,30 +96,48 @@ def obtener_ficha(cliente_id: int) -> dict | None:
     con.close()
     if fila is None:
         return None
-    return {
-        "id": fila[0], "cliente_id": fila[1], "objetivo": fila[2],
-        "estado_fisico": fila[3], "condiciones": fila[4],
-        "notas": fila[5], "foto_ruta": fila[6]
-    }
+    cols = ["id","cliente_id","objetivo","estado_fisico","condiciones","notas","foto_ruta",
+            "peso_kg","altura_m","cir_abdominal","status_fisico","objetivo_2","peso_ideal",
+            "lesion","cardiovascular","asfixia","asmatico","medicacion","mareos"]
+    return dict(zip(cols, fila + (None,) * (len(cols) - len(fila))))
 
 
 def guardar_ficha(cliente_id: int, objetivo: str, estado_fisico: str,
-                  condiciones: str, notas: str, foto_ruta: str = None):
+                  condiciones: str, notas: str, foto_ruta: str = None,
+                  peso_kg=None, altura_m=None, cir_abdominal=None,
+                  status_fisico=None, objetivo_2=None, peso_ideal=None,
+                  lesion=None, cardiovascular=None, asfixia=None,
+                  asmatico=None, medicacion=None, mareos=None):
     con = _con()
-
     ficha_actual = obtener_ficha(cliente_id)
     ruta_final   = foto_ruta if foto_ruta else (ficha_actual["foto_ruta"] if ficha_actual else None)
-
     con.execute("""
-        INSERT INTO ficha_cliente (cliente_id, objetivo, estado_fisico, condiciones, notas, foto_ruta)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO ficha_cliente
+            (cliente_id, objetivo, estado_fisico, condiciones, notas, foto_ruta,
+             peso_kg, altura_m, cir_abdominal, status_fisico, objetivo_2, peso_ideal,
+             lesion, cardiovascular, asfixia, asmatico, medicacion, mareos)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(cliente_id) DO UPDATE SET
-            objetivo      = excluded.objetivo,
-            estado_fisico = excluded.estado_fisico,
-            condiciones   = excluded.condiciones,
-            notas         = excluded.notas,
-            foto_ruta     = excluded.foto_ruta
-    """, (cliente_id, objetivo, estado_fisico, condiciones, notas, ruta_final))
+            objetivo        = excluded.objetivo,
+            estado_fisico   = excluded.estado_fisico,
+            condiciones     = excluded.condiciones,
+            notas           = excluded.notas,
+            foto_ruta       = excluded.foto_ruta,
+            peso_kg         = excluded.peso_kg,
+            altura_m        = excluded.altura_m,
+            cir_abdominal   = excluded.cir_abdominal,
+            status_fisico   = excluded.status_fisico,
+            objetivo_2      = excluded.objetivo_2,
+            peso_ideal      = excluded.peso_ideal,
+            lesion          = excluded.lesion,
+            cardiovascular  = excluded.cardiovascular,
+            asfixia         = excluded.asfixia,
+            asmatico        = excluded.asmatico,
+            medicacion      = excluded.medicacion,
+            mareos          = excluded.mareos
+    """, (cliente_id, objetivo, estado_fisico, condiciones, notas, ruta_final,
+          peso_kg, altura_m, cir_abdominal, status_fisico, objetivo_2, peso_ideal,
+          lesion, cardiovascular, asfixia, asmatico, medicacion, mareos))
     con.commit()
     con.close()
 
@@ -131,8 +162,7 @@ def obtener_historial(cliente_id: int) -> list:
     cur = con.cursor()
     cur.execute("""
         SELECT id, fecha, peso_kg, altura_cm, imc, notas
-        FROM historial_medidas
-        WHERE cliente_id = ?
+        FROM historial_medidas WHERE cliente_id = ?
         ORDER BY id DESC
     """, (cliente_id,))
     datos = cur.fetchall()

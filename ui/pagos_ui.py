@@ -20,27 +20,20 @@ def abrir_ventana_pagos(parent):
     ventana.title("Gestión de Pagos")
     ventana.state("zoomed")
     ventana.resizable(True, True)
-
     ventana.lift()
     ventana.focus_force()
     ventana.attributes("-topmost", True)
     ventana.after(200, lambda: ventana.attributes("-topmost", False))
 
-    # ---------- CONTENEDOR CON SCROLL ----------
+    # ---------- SCROLL ----------
     contenedor_principal = tk.Frame(ventana, bg="#1e1e1e")
     contenedor_principal.pack(fill=BOTH, expand=True)
 
-    canvas = tk.Canvas(
-        contenedor_principal,
-        bg="#1e1e1e",
-        highlightthickness=0,
-        bd=0
-    )
+    canvas = tk.Canvas(contenedor_principal, bg="#1e1e1e", highlightthickness=0, bd=0)
     canvas.pack(side=LEFT, fill=BOTH, expand=True)
 
     scrollbar = ttk.Scrollbar(contenedor_principal, orient=VERTICAL, command=canvas.yview)
     scrollbar.pack(side=RIGHT, fill=Y)
-
     canvas.configure(yscrollcommand=scrollbar.set)
 
     frame_scroll = tk.Frame(canvas, bg="#1e1e1e")
@@ -56,339 +49,181 @@ def abrir_ventana_pagos(parent):
     canvas.bind("<Configure>", ajustar_ancho_frame)
 
     def _on_mousewheel_principal(event):
-        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        return "break"
-
-    def _on_mousewheel_linux_up(event):
-        canvas.yview_scroll(-1, "units")
-        return "break"
-
-    def _on_mousewheel_linux_down(event):
-        canvas.yview_scroll(1, "units")
+        if not canvas.winfo_exists():
+            return "break"
+        try:
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        except Exception:
+            pass
         return "break"
 
     ventana.bind_all("<MouseWheel>", _on_mousewheel_principal)
-    ventana.bind_all("<Button-4>", _on_mousewheel_linux_up)
-    ventana.bind_all("<Button-5>", _on_mousewheel_linux_down)
+    ventana.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+    ventana.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
 
     # ---------- ESTILOS ----------
     style = ttk.Style()
+    style.configure("Treeview", font=("Segoe UI", 10), rowheight=35)
+    style.configure("Treeview.Heading", font=("Segoe UI", 12, "bold"))
 
-    style.configure(
-        "Treeview",
-        font=("Segoe UI", 10),
-        rowheight=35
-    )
-
-    style.configure(
-        "Treeview.Heading",
-        font=("Segoe UI", 12, "bold")
-    )
-
-    # ---------- CONTENEDOR INTERNO ----------
+    # ---------- CONTENEDOR ----------
     contenedor = tk.Frame(frame_scroll, bg="#1e1e1e", padx=16, pady=16)
     contenedor.pack(fill=BOTH, expand=True)
 
     # ---------- HEADER ----------
     frame_header = ttk.Frame(contenedor, bootstyle="dark")
     frame_header.pack(fill=X, pady=(6, 14))
-
     header_inner = ttk.Frame(frame_header, padding=18)
     header_inner.pack(fill=X)
-
-    ttk.Label(
-        header_inner,
-        text="Gestión de Pagos",
-        font=("Segoe UI", 24, "bold")
-    ).pack(side=LEFT, padx=(8, 18))
-
-    ttk.Label(
-        header_inner,
-        text="Administra pagos, consulta historial y crea suscripciones",
-        font=("Segoe UI", 11)
-    ).pack(side=LEFT)
-
-    ttk.Button(
-        header_inner,
-        text="← Volver al menú",
-        bootstyle="secondary",
-        command=ventana.destroy
-    ).pack(side=RIGHT, padx=8)
+    ttk.Label(header_inner, text="Gestión de Pagos",
+              font=("Segoe UI", 24, "bold")).pack(side=LEFT, padx=(8, 18))
+    ttk.Label(header_inner,
+              text="Administra pagos, consulta historial y crea suscripciones",
+              font=("Segoe UI", 11)).pack(side=LEFT)
+    ttk.Button(header_inner, text="← Volver al menú",
+               bootstyle="secondary", command=ventana.destroy).pack(side=RIGHT, padx=8)
 
     # ---------- TARJETAS ----------
     frame_cards = tk.Frame(contenedor, bg="#1e1e1e")
     frame_cards.pack(fill=X, pady=(0, 14))
 
-    card_total = tk.Frame(frame_cards, bg="#3b5f86", height=130)
-    card_total.pack(side=LEFT, fill=X, expand=True, padx=8)
-    card_total.pack_propagate(False)
+    def hacer_card(parent, color, titulo):
+        card = tk.Frame(parent, bg=color, height=130)
+        card.pack(side=LEFT, fill=X, expand=True, padx=8)
+        card.pack_propagate(False)
+        tk.Label(card, text=titulo, font=("Segoe UI", 14, "bold"),
+                 bg="#1c1c1c", fg="white", padx=10, pady=4).pack(pady=(20, 6))
+        lbl = tk.Label(card, text="0", font=("Segoe UI", 30, "bold"),
+                       bg="#1c1c1c", fg="white", padx=10, pady=4)
+        lbl.pack()
+        return lbl
 
-    card_pagadas = tk.Frame(frame_cards, bg="#13c29a", height=130)
-    card_pagadas.pack(side=LEFT, fill=X, expand=True, padx=8)
-    card_pagadas.pack_propagate(False)
+    lbl_total_valor      = hacer_card(frame_cards, "#3b5f86", "Total Suscripciones")
+    lbl_total_pagadas    = hacer_card(frame_cards, "#13c29a", "Pagadas")
+    lbl_total_pendientes = hacer_card(frame_cards, "#3d9ad6", "Pendientes")
+    # NUEVO: card de total recaudado en dinero
+    lbl_total_recaudado  = hacer_card(frame_cards, "#6f42c1", "Total Recaudado ($)")
 
-    card_pendientes = tk.Frame(frame_cards, bg="#3d9ad6", height=130)
-    card_pendientes.pack(side=LEFT, fill=X, expand=True, padx=8)
-    card_pendientes.pack_propagate(False)
-
-    tk.Label(
-        card_total,
-        text="Total Suscripciones",
-        font=("Segoe UI", 14, "bold"),
-        bg="#1c1c1c",
-        fg="white",
-        padx=10,
-        pady=4
-    ).pack(pady=(20, 6))
-
-    lbl_total_valor = tk.Label(
-        card_total,
-        text="0",
-        font=("Segoe UI", 30, "bold"),
-        bg="#1c1c1c",
-        fg="white",
-        padx=10,
-        pady=4
-    )
-    lbl_total_valor.pack()
-
-    tk.Label(
-        card_pagadas,
-        text="Pagadas",
-        font=("Segoe UI", 14, "bold"),
-        bg="#1c1c1c",
-        fg="white",
-        padx=10,
-        pady=4
-    ).pack(pady=(20, 6))
-
-    lbl_total_pagadas = tk.Label(
-        card_pagadas,
-        text="0",
-        font=("Segoe UI", 30, "bold"),
-        bg="#1c1c1c",
-        fg="white",
-        padx=10,
-        pady=4
-    )
-    lbl_total_pagadas.pack()
-
-    tk.Label(
-        card_pendientes,
-        text="Pendientes",
-        font=("Segoe UI", 14, "bold"),
-        bg="#1c1c1c",
-        fg="white",
-        padx=10,
-        pady=4
-    ).pack(pady=(20, 6))
-
-    lbl_total_pendientes = tk.Label(
-        card_pendientes,
-        text="0",
-        font=("Segoe UI", 30, "bold"),
-        bg="#1c1c1c",
-        fg="white",
-        padx=10,
-        pady=4
-    )
-    lbl_total_pendientes.pack()
-
-    # ---------- CLIENTES Y SUSCRIPCIONES LADO A LADO ----------
+    # ---------- CLIENTES Y SUSCRIPCIONES ----------
     frame_superior = ttk.Frame(contenedor)
     frame_superior.pack(fill=X, pady=8)
-
     frame_superior.columnconfigure(0, weight=1)
     frame_superior.columnconfigure(1, weight=1)
 
-    # ---------- CLIENTES ----------
-    frame_clientes = ttk.Labelframe(
-        frame_superior,
-        text="Clientes registrados",
-        padding=10,
-        bootstyle="primary"
-    )
+    frame_clientes = ttk.Labelframe(frame_superior, text="Clientes registrados",
+                                    padding=10, bootstyle="primary")
     frame_clientes.grid(row=0, column=0, padx=(0, 8), sticky="nsew")
-
-    frame_clientes_scroll = ttk.Frame(frame_clientes)
-    frame_clientes_scroll.pack(fill=BOTH, expand=YES)
-
-    tabla_clientes = ttk.Treeview(
-        frame_clientes_scroll,
-        columns=("ID", "Nombre"),
-        show="headings",
-        height=6,
-        style="Treeview"
-    )
-
-    tabla_clientes.heading("ID", text="ID")
+    frame_cs = ttk.Frame(frame_clientes)
+    frame_cs.pack(fill=BOTH, expand=YES)
+    tabla_clientes = ttk.Treeview(frame_cs, columns=("ID", "Nombre"),
+                                   show="headings", height=6)
+    tabla_clientes.heading("ID",     text="ID")
     tabla_clientes.heading("Nombre", text="Nombre")
-
-    tabla_clientes.column("ID", width=100, anchor="center")
+    tabla_clientes.column("ID",     width=100, anchor="center")
     tabla_clientes.column("Nombre", width=260, anchor="center")
-
     tabla_clientes.pack(side=LEFT, fill=BOTH, expand=YES)
+    sc = ttk.Scrollbar(frame_cs, orient=VERTICAL, command=tabla_clientes.yview)
+    sc.pack(side=RIGHT, fill=Y)
+    tabla_clientes.configure(yscrollcommand=sc.set)
 
-    scroll_clientes = ttk.Scrollbar(
-        frame_clientes_scroll,
-        orient=VERTICAL,
-        command=tabla_clientes.yview
-    )
-    scroll_clientes.pack(side=RIGHT, fill=Y)
-
-    tabla_clientes.configure(yscrollcommand=scroll_clientes.set)
-
-    # ---------- SUSCRIPCIONES ----------
-    frame_sus = ttk.Labelframe(
-        frame_superior,
-        text="Suscripciones registradas",
-        padding=10,
-        bootstyle="success"
-    )
+    frame_sus = ttk.Labelframe(frame_superior, text="Suscripciones registradas",
+                                padding=10, bootstyle="success")
     frame_sus.grid(row=0, column=1, padx=(8, 0), sticky="nsew")
-
-    frame_sus_scroll = ttk.Frame(frame_sus)
-    frame_sus_scroll.pack(fill=BOTH, expand=YES)
-
-    tabla_sus = ttk.Treeview(
-        frame_sus_scroll,
-        columns=("ID", "Cliente", "Plan"),
-        show="headings",
-        height=6,
-        style="Treeview"
-    )
-
-    tabla_sus.heading("ID", text="ID Suscripción")
+    frame_ss = ttk.Frame(frame_sus)
+    frame_ss.pack(fill=BOTH, expand=YES)
+    tabla_sus = ttk.Treeview(frame_ss, columns=("ID", "Cliente", "Plan"),
+                              show="headings", height=6)
+    tabla_sus.heading("ID",      text="ID Suscripción")
     tabla_sus.heading("Cliente", text="Cliente")
-    tabla_sus.heading("Plan", text="Plan")
-
-    
-    tabla_sus.column("ID",        anchor="center", width=50)
-    tabla_sus.column("Cliente",   anchor="center", width=180)
-    tabla_sus.column("Plan",      anchor="center", width=150)
-
+    tabla_sus.heading("Plan",    text="Plan")
+    tabla_sus.column("ID",      anchor="center", width=50)
+    tabla_sus.column("Cliente", anchor="center", width=180)
+    tabla_sus.column("Plan",    anchor="center", width=150)
     tabla_sus.pack(side=LEFT, fill=BOTH, expand=YES)
+    ss = ttk.Scrollbar(frame_ss, orient=VERTICAL, command=tabla_sus.yview)
+    ss.pack(side=RIGHT, fill=Y)
+    tabla_sus.configure(yscrollcommand=ss.set)
 
-    scroll_sus = ttk.Scrollbar(
-        frame_sus_scroll,
-        orient=VERTICAL,
-        command=tabla_sus.yview
-    )
-    scroll_sus.pack(side=RIGHT, fill=Y)
-
-    tabla_sus.configure(yscrollcommand=scroll_sus.set)
-
-    # ---------- SCROLL DEL MOUSE EN CLIENTES Y SUSCRIPCIONES ----------
     def scroll_clientes_mouse(event):
-        tabla_clientes.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        return "break"
-
+        tabla_clientes.yview_scroll(int(-1*(event.delta/120)), "units"); return "break"
     def scroll_sus_mouse(event):
-        tabla_sus.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        return "break"
-
-    def activar_scroll_clientes(event):
-        ventana.bind_all("<MouseWheel>", scroll_clientes_mouse)
-
-    def activar_scroll_sus(event):
-        ventana.bind_all("<MouseWheel>", scroll_sus_mouse)
-
-    def restaurar_scroll_principal(event=None):
+        tabla_sus.yview_scroll(int(-1*(event.delta/120)), "units"); return "break"
+    def restaurar_scroll(event=None):
         ventana.bind_all("<MouseWheel>", _on_mousewheel_principal)
+    tabla_clientes.bind("<Enter>", lambda e: ventana.bind_all("<MouseWheel>", scroll_clientes_mouse))
+    tabla_clientes.bind("<Leave>", restaurar_scroll)
+    tabla_sus.bind("<Enter>",     lambda e: ventana.bind_all("<MouseWheel>", scroll_sus_mouse))
+    tabla_sus.bind("<Leave>",     restaurar_scroll)
 
-    tabla_clientes.bind("<Enter>", activar_scroll_clientes)
-    tabla_clientes.bind("<Leave>", restaurar_scroll_principal)
+    # ---------- SELECTOR DE MES Y AÑO ----------
+    frame_mes = ttk.Frame(contenedor)
+    frame_mes.pack(fill=X, pady=(0, 4))
 
-    tabla_sus.bind("<Enter>", activar_scroll_sus)
-    tabla_sus.bind("<Leave>", restaurar_scroll_principal)
+    ttk.Label(frame_mes, text="Filtrar por:",
+              font=("Segoe UI", 12, "bold")).pack(side=LEFT, padx=(0, 10))
+
+    meses = ["Todos", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+             "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    combo_mes = ttk.Combobox(frame_mes, values=meses, width=14, state="readonly")
+    combo_mes.set("Todos")
+    combo_mes.pack(side=LEFT, padx=(0, 8))
+
+    ttk.Label(frame_mes, text="Año:",
+              font=("Segoe UI", 12, "bold")).pack(side=LEFT, padx=(0, 6))
+
+    anios = ["Todos"] + [str(a) for a in range(2020, 2101)]
+    combo_anio = ttk.Combobox(frame_mes, values=anios, width=10, state="readonly")
+    combo_anio.set("Todos")
+    combo_anio.pack(side=LEFT, padx=(0, 8))
+
+    lbl_mes_info = ttk.Label(frame_mes, text="", font=("Segoe UI", 10), bootstyle="info")
+    lbl_mes_info.pack(side=LEFT, padx=15)
 
     # ---------- TABLA PRINCIPAL ----------
-    frame_tabla = ttk.Labelframe(
-        contenedor,
-        text="Detalle de pagos y suscripciones",
-        padding=10,
-        bootstyle="info"
-    )
+    frame_tabla = ttk.Labelframe(contenedor, text="Detalle de pagos y suscripciones",
+                                  padding=10, bootstyle="info")
     frame_tabla.pack(fill=BOTH, expand=True, pady=8)
 
-    columnas = ("ID", "Cliente", "Plan", "Total", "Pagado", "Pendiente", "Inicio", "Vence")
-    tabla = ttk.Treeview(
-        frame_tabla,
-        columns=columnas,
-        show="headings",
-        height=10,
-        style="Treeview"
-    )
+    # NUEVO: columna "Acumulado ($)" al final muestra la suma total pagada
+    columnas = ("ID", "Cliente", "Plan", "Total", "Pagado", "Pendiente",
+                "Inicio", "Vence", "Acumulado ($)")
+    tabla = ttk.Treeview(frame_tabla, columns=columnas, show="headings", height=10)
 
     for col in columnas:
         tabla.heading(col, text=col)
         tabla.column(col, width=120, anchor=CENTER)
 
-    tabla.column("Cliente", width=220, anchor=W)
-    tabla.column("Plan", width=180, anchor=W)
+    tabla.column("Cliente",       width=220, anchor=W)
+    tabla.column("Plan",          width=180, anchor=W)
+    tabla.column("Acumulado ($)", width=130, anchor=CENTER)
 
-    tabla.tag_configure("pagado", background="#b6f2c6", foreground="#0f5132")
+    tabla.tag_configure("pagado",  background="#b6f2c6", foreground="#0f5132")
     tabla.tag_configure("parcial", background="#fff3cd", foreground="#664d03")
-    tabla.tag_configure("deuda", background="#f8d7da", foreground="#842029")
+    tabla.tag_configure("deuda",   background="#f8d7da", foreground="#842029")
 
-    scroll_y = ttk.Scrollbar(frame_tabla, orient=VERTICAL, command=tabla.yview)
+    scroll_y = ttk.Scrollbar(frame_tabla, orient=VERTICAL,   command=tabla.yview)
     scroll_x = ttk.Scrollbar(frame_tabla, orient=HORIZONTAL, command=tabla.xview)
-
     tabla.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
-
     tabla.grid(row=0, column=0, sticky="nsew")
     scroll_y.grid(row=0, column=1, sticky="ns")
     scroll_x.grid(row=1, column=0, sticky="ew")
-
     frame_tabla.grid_rowconfigure(0, weight=1)
     frame_tabla.grid_columnconfigure(0, weight=1)
 
-    def _on_mousewheel_principal(event):
-        if not canvas.winfo_exists():
-            return "break"
-
-        try:
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        except:
-            return "break"
-
-        return "break"
-    
     def _on_mousewheel_tabla(event):
-        tabla.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        return "break"
-
-    def activar_scroll_tabla(event):
-        ventana.bind_all("<MouseWheel>", _on_mousewheel_tabla)
-
-    def restaurar_scroll_principal(event):
-       ventana.bind_all("<MouseWheel>", _on_mousewheel_principal)
-
-    tabla.bind("<Enter>", activar_scroll_tabla)
-    tabla.bind("<Leave>", restaurar_scroll_principal)
-
-    for col in columnas:
-        tabla.heading(col, text=col)
-
-    tabla.column("ID",        anchor="center", width=50)
-    tabla.column("Cliente",   anchor="center", width=180)
-    tabla.column("Plan",      anchor="center", width=150)
-    tabla.column("Pagado",    anchor="center", width=100)
-    tabla.column("Pendiente", anchor="center", width=100)
-    tabla.column("Inicio",    anchor="center", width=110)
-    tabla.column("Vence",     anchor="center", width=110)
+        tabla.yview_scroll(int(-1*(event.delta/120)), "units"); return "break"
+    tabla.bind("<Enter>", lambda e: ventana.bind_all("<MouseWheel>", _on_mousewheel_tabla))
+    tabla.bind("<Leave>", restaurar_scroll)
 
     # ---------- PANEL INFERIOR ----------
     frame_inferior = ttk.Frame(contenedor)
     frame_inferior.pack(fill=X, pady=12)
-
     frame_inferior.grid_columnconfigure(0, weight=1)
     frame_inferior.grid_columnconfigure(1, weight=1)
 
     frame_buscar = ttk.Labelframe(frame_inferior, text="Buscar / Crear suscripción", padding=12)
     frame_buscar.grid(row=0, column=0, padx=(0, 8), sticky="nsew")
-
-    frame_pago = ttk.Labelframe(frame_inferior, text="Registrar pago", padding=12)
+    frame_pago   = ttk.Labelframe(frame_inferior, text="Registrar pago", padding=12)
     frame_pago.grid(row=0, column=1, padx=(8, 0), sticky="nsew")
 
     ttk.Label(frame_buscar, text="Buscar por ID Cliente").grid(row=0, column=0, padx=8, pady=6, sticky=W)
@@ -415,384 +250,239 @@ def abrir_ventana_pagos(parent):
     def actualizar_cards(datos=None):
         if datos is None:
             datos = listar_suscripciones_para_pago()
-
-        total = len(datos)
-        pagadas = 0
+        total      = len(datos)
+        pagadas    = 0
         pendientes = 0
-
+        recaudado  = 0.0
         for sus in datos:
             total_pago = float(sus[4])
-            pagado = float(sus[5])
-            pendiente = float(sus[6])
-
-            if pendiente < 0:
-                pendiente = 0.0
-
-            if pagado >= total_pago or pendiente <= 0:
+            pagado     = float(sus[5])
+            pendiente  = max(0.0, float(sus[6]))
+            recaudado += pagado
+            if total_pago == 0 and pagado == 0:
+                pendientes += 1
+            elif pagado >= total_pago and total_pago > 0:
                 pagadas += 1
             else:
                 pendientes += 1
-
         lbl_total_valor.config(text=str(total))
         lbl_total_pagadas.config(text=str(pagadas))
         lbl_total_pendientes.config(text=str(pendientes))
+        lbl_total_recaudado.config(text=f"${recaudado:,.2f}")
 
     def cargar_clientes():
         for fila in tabla_clientes.get_children():
             tabla_clientes.delete(fila)
+        for c in ver_clientes():
+            tabla_clientes.insert("", END, values=(c[0], c[1]))
 
-        clientes = ver_clientes()
-
-        for cliente in clientes:
-            id_cliente = cliente[0]
-            nombre = cliente[1]
-            tabla_clientes.insert("", END, values=(id_cliente, nombre))
-
-    def cargar_suscripciones():
+    def cargar_suscripciones(mes_num=None, anio=None):
         for fila in tabla.get_children():
             tabla.delete(fila)
-
         datos = listar_suscripciones_para_pago()
 
-        for sus in datos:
-            cliente = sus[1]
+        # Filtrar por año
+        if anio:
+            datos = [s for s in datos if s[7] and str(s[7]).startswith(str(anio))]
+
+        # Filtrar por mes
+        if mes_num:
+            mes_str = f"{mes_num:02d}"
+            datos_filtrados = [s for s in datos if s[7] and str(s[7])[5:7] == mes_str]
+        else:
+            datos_filtrados = datos
+
+        for sus in datos_filtrados:
+            cliente        = sus[1]
             id_suscripcion = sus[2]
-            plan = sus[3]
-            total = float(sus[4])
-            pagado = float(sus[5])
-            pendiente = float(sus[6])
-            inicio = sus[7]
-            vence = sus[8]
-
-            if pendiente < 0:
-                pendiente = 0.0
-
-            fila = (
-                id_suscripcion,
-                cliente,
-                plan,
-                f"{total:.2f}",
-                f"{pagado:.2f}",
-                f"{pendiente:.2f}",
-                inicio,
-                vence
-            )
-
-            if pagado >= total or pendiente <= 0:
-                tag = "pagado"
-            elif pagado > 0:
-                tag = "parcial"
-            else:
-                tag = "deuda"
-
+            plan           = sus[3]
+            total          = float(sus[4])
+            pagado         = float(sus[5])
+            pendiente      = max(0.0, float(sus[6]))
+            inicio         = sus[7]
+            vence          = sus[8]
+            fila = (id_suscripcion, cliente, plan,
+                    f"{total:.2f}", f"{pagado:.2f}", f"{pendiente:.2f}",
+                    inicio, vence, f"${pagado:.2f}")
+            if total == 0 and pagado == 0:          tag = "deuda"
+            elif pagado >= total and total > 0:     tag = "pagado"
+            elif pagado > 0:                        tag = "parcial"
+            else:                                   tag = "deuda"
             tabla.insert("", END, values=fila, tags=(tag,))
+        actualizar_cards(datos_filtrados)
 
-        actualizar_cards(datos)
+        # Info debajo del selector
+        total_rec = sum(float(s[5]) for s in datos_filtrados)
+        n = len(datos_filtrados)
+        filtro = []
+        if mes_num: filtro.append(meses[mes_num])
+        if anio:    filtro.append(str(anio))
+        desc = " / ".join(filtro) if filtro else "Todos"
+        lbl_mes_info.configure(text=f"{desc}  —  {n} suscripciones  |  Recaudado: ${total_rec:,.2f}")
 
     def buscar_cliente():
-        cliente_id = entry_cliente.get()
-
-        if cliente_id == "":
-            messagebox.showerror("Error", "Ingrese un ID de cliente", parent=ventana)
-            return
-
+        cliente_id = entry_cliente.get().strip()
+        if not cliente_id:
+            messagebox.showerror("Error", "Ingrese un ID de cliente", parent=ventana); return
         try:
             cliente_id = int(cliente_id)
         except ValueError:
-            messagebox.showerror("Error", "ID inválido", parent=ventana)
-            return
-
+            messagebox.showerror("Error", "ID inválido", parent=ventana); return
         datos = buscar_cliente_pagos(cliente_id)
-
         if not datos:
-            messagebox.showinfo("Sin resultados", "El cliente no tiene suscripciones", parent=ventana)
-            return
-
+            messagebox.showinfo("Sin resultados", "El cliente no tiene suscripciones", parent=ventana); return
         for fila in tabla.get_children():
             tabla.delete(fila)
-
+        pagadas = pendientes_c = 0
+        recaudado = 0.0
         for sus in datos:
-            id_suscripcion, cliente, plan, total, pagado, pendiente, inicio, vence = sus
-
-            total = float(total)
-            pagado = float(pagado)
-            pendiente = float(pendiente)
-
-            if pendiente < 0:
-                pendiente = 0.0
-
-            fila = (
-                id_suscripcion,
-                cliente,
-                plan,
-                f"{total:.2f}",
-                f"{pagado:.2f}",
-                f"{pendiente:.2f}",
-                inicio,
-                vence
-            )
-
-            if pagado >= total or pendiente <= 0:
-                tag = "pagado"
-            elif pagado > 0:
-                tag = "parcial"
-            else:
-                tag = "deuda"
-
+            id_s, cliente, plan, total, pagado, pendiente, inicio, vence = sus
+            total    = float(total)
+            pagado   = float(pagado)
+            pendiente = max(0.0, float(pendiente))
+            recaudado += pagado
+            fila = (id_s, cliente, plan,
+                    f"{total:.2f}", f"{pagado:.2f}", f"{pendiente:.2f}",
+                    inicio, vence, f"${pagado:.2f}")
+            # FIX: si total=0 y pagado=0 es deuda, no pagado
+            if total == 0 and pagado == 0:         tag = "deuda";   pendientes_c += 1
+            elif pagado >= total and total > 0:    tag = "pagado";  pagadas += 1
+            elif pagado > 0:                       tag = "parcial"; pendientes_c += 1
+            else:                                  tag = "deuda";   pendientes_c += 1
             tabla.insert("", END, values=fila, tags=(tag,))
-
-        total_registros = len(datos)
-        pagadas = 0
-        pendientes_count = 0
-
-        for sus in datos:
-            total_pago = float(sus[3])
-            pagado = float(sus[4])
-            pendiente = float(sus[5])
-
-            if pendiente < 0:
-                pendiente = 0.0
-
-            if pagado >= total_pago or pendiente <= 0:
-                pagadas += 1
-            else:
-                pendientes_count += 1
-
-        lbl_total_valor.config(text=str(total_registros))
+        lbl_total_valor.config(text=str(len(datos)))
         lbl_total_pagadas.config(text=str(pagadas))
-        lbl_total_pendientes.config(text=str(pendientes_count))
+        lbl_total_pendientes.config(text=str(pendientes_c))
+        lbl_total_recaudado.config(text=f"${recaudado:,.2f}")
 
     def seleccionar_fila(event):
-        seleccion = tabla.selection()
-        if not seleccion:
-            return
-
-        valores = tabla.item(seleccion[0], "values")
+        sel = tabla.selection()
+        if not sel: return
         entry_id.delete(0, END)
-        entry_id.insert(0, valores[0])
+        entry_id.insert(0, tabla.item(sel[0], "values")[0])
 
     def seleccionar_cliente(event):
         item = tabla_clientes.selection()
-        if not item:
-            return
-
-        valores = tabla_clientes.item(item[0], "values")
+        if not item: return
         entry_cliente.delete(0, END)
-        entry_cliente.insert(0, valores[0])
+        entry_cliente.insert(0, tabla_clientes.item(item[0], "values")[0])
 
     def seleccionar_suscripcion(event):
         item = tabla_sus.selection()
-        if not item:
-            return
-
-        valores = tabla_sus.item(item[0], "values")
+        if not item: return
         entry_id.delete(0, END)
-        entry_id.insert(0, valores[0])
+        entry_id.insert(0, tabla_sus.item(item[0], "values")[0])
 
     def pagar():
-        suscripcion = entry_id.get()
-        monto = entry_monto.get()
-
-        if suscripcion == "" or monto == "":
-            messagebox.showerror("Error", "Debes seleccionar una suscripción y escribir el monto", parent=ventana)
-            return
-
+        suscripcion = entry_id.get().strip()
+        monto       = entry_monto.get().strip()
+        if not suscripcion or not monto:
+            messagebox.showerror("Error", "Debes seleccionar una suscripción y escribir el monto", parent=ventana); return
         try:
-            suscripcion = int(suscripcion)
-            monto = float(monto)
+            suscripcion = int(suscripcion); monto = float(monto)
         except ValueError:
-            messagebox.showerror("Error", "Datos inválidos", parent=ventana)
-            return
-
+            messagebox.showerror("Error", "Datos inválidos", parent=ventana); return
         if monto <= 0:
-            messagebox.showerror("Error", "El monto debe ser mayor a 0", parent=ventana)
-            return
-
+            messagebox.showerror("Error", "El monto debe ser mayor a 0", parent=ventana); return
         registrar_pago(suscripcion, monto)
         messagebox.showinfo("Pago registrado", "El pago fue registrado correctamente", parent=ventana)
-
-        entry_id.delete(0, END)
-        entry_monto.delete(0, END)
-
-        cargar_suscripciones()
-        cargar_suscripciones_lista()
+        entry_id.delete(0, END); entry_monto.delete(0, END)
+        cargar_suscripciones(); cargar_suscripciones_lista()
 
     def ver_historial():
-        suscripcion = entry_id.get()
-
-        if suscripcion == "":
-            messagebox.showerror("Error", "Seleccione una suscripción primero", parent=ventana)
-            return
-
+        suscripcion = entry_id.get().strip()
+        if not suscripcion:
+            messagebox.showerror("Error", "Seleccione una suscripción primero", parent=ventana); return
         try:
             suscripcion = int(suscripcion)
         except ValueError:
-            messagebox.showerror("Error", "ID inválido", parent=ventana)
-            return
-
+            messagebox.showerror("Error", "ID inválido", parent=ventana); return
         historial = ver_historial_pagos(suscripcion)
-
         if not historial:
-            messagebox.showinfo("Historial", "No hay pagos registrados", parent=ventana)
-            return
-
-        ventana_historial = tb.Toplevel(ventana)
-        ventana_historial.title("Historial de Pagos")
-        ventana_historial.geometry("520x350")
-
-        frame_hist = ttk.Frame(ventana_historial, padding=10)
+            messagebox.showinfo("Historial", "No hay pagos registrados", parent=ventana); return
+        vh = tb.Toplevel(ventana)
+        vh.title("Historial de Pagos"); vh.geometry("520x350")
+        frame_hist = ttk.Frame(vh, padding=10)
         frame_hist.pack(fill=BOTH, expand=True)
-
-        tabla_historial = ttk.Treeview(
-            frame_hist,
-            columns=("ID Pago", "Monto", "Fecha"),
-            show="headings",
-            style="Treeview"
-        )
-
-        tabla_historial.heading("ID Pago", text="ID Pago")
-        tabla_historial.heading("Monto", text="Monto")
-        tabla_historial.heading("Fecha", text="Fecha")
-
-        tabla_historial.column("ID Pago", width=100, anchor=CENTER)
-        tabla_historial.column("Monto", width=120, anchor=CENTER)
-        tabla_historial.column("Fecha", width=180, anchor=CENTER)
-
-        tabla_historial.pack(fill=BOTH, expand=True)
-
+        th = ttk.Treeview(frame_hist, columns=("ID Pago", "Monto", "Fecha"), show="headings")
+        th.heading("ID Pago", text="ID Pago")
+        th.heading("Monto",   text="Monto")
+        th.heading("Fecha",   text="Fecha")
+        th.column("ID Pago", width=100, anchor=CENTER)
+        th.column("Monto",   width=120, anchor=CENTER)
+        th.column("Fecha",   width=180, anchor=CENTER)
+        th.pack(fill=BOTH, expand=True)
         for pago_id, monto, fecha in historial:
-            tabla_historial.insert("", END, values=(pago_id, monto, fecha))
+            th.insert("", END, values=(pago_id, monto, fecha))
 
     def cargar_suscripciones_lista():
         for fila in tabla_sus.get_children():
             tabla_sus.delete(fila)
-
-        datos = ver_suscripciones_completas()
-
-        for sus in datos:
+        for sus in ver_suscripciones_completas():
             id_s, cliente, plan, inicio, vence, pagado, deuda = sus
             tabla_sus.insert("", END, values=(id_s, cliente, plan))
 
     def eliminar_pago_seleccionado():
-        suscripcion = entry_id.get()
-
-        if suscripcion == "":
-            messagebox.showerror("Error", "Selecciona una suscripción", parent=ventana)
-            return
-
+        suscripcion = entry_id.get().strip()
+        if not suscripcion:
+            messagebox.showerror("Error", "Selecciona una suscripción", parent=ventana); return
         try:
             suscripcion = int(suscripcion)
         except ValueError:
-            messagebox.showerror("Error", "ID inválido", parent=ventana)
-            return
-
+            messagebox.showerror("Error", "ID inválido", parent=ventana); return
         historial = ver_historial_pagos(suscripcion)
-
         if not historial:
-            messagebox.showinfo("Información", "No hay pagos para eliminar", parent=ventana)
-            return
-
-        confirmar = messagebox.askyesno("Confirmar", "¿Eliminar el último pago?", parent=ventana)
-
-        if not confirmar:
-            return
-
-        pago_id = historial[-1][0]
-        eliminar_pago(pago_id)
-
+            messagebox.showinfo("Información", "No hay pagos para eliminar", parent=ventana); return
+        if not messagebox.askyesno("Confirmar", "¿Eliminar el último pago?", parent=ventana): return
+        eliminar_pago(historial[-1][0])
         messagebox.showinfo("Pago eliminado", "El pago fue eliminado", parent=ventana)
-        cargar_suscripciones()
-        cargar_suscripciones_lista()
+        cargar_suscripciones(); cargar_suscripciones_lista()
 
     def crear_suscripcion_rapida():
-        cliente = entry_id_cliente.get()
-        membresia = entry_id_membresia.get()
-
-        if cliente == "" or membresia == "":
-            messagebox.showerror("Error", "Debes ingresar cliente y membresía", parent=ventana)
-            return
-
+        cliente   = entry_id_cliente.get().strip()
+        membresia = entry_id_membresia.get().strip()
+        if not cliente or not membresia:
+            messagebox.showerror("Error", "Debes ingresar cliente y membresía", parent=ventana); return
         try:
-            cliente = int(cliente)
-            membresia = int(membresia)
+            cliente = int(cliente); membresia = int(membresia)
         except ValueError:
-            messagebox.showerror("Error", "IDs inválidos", parent=ventana)
-            return
-
+            messagebox.showerror("Error", "IDs inválidos", parent=ventana); return
         crear_suscripcion(cliente, membresia)
         messagebox.showinfo("Éxito", "Suscripción creada", parent=ventana)
-
-        cargar_suscripciones()
-        cargar_suscripciones_lista()
+        cargar_suscripciones(); cargar_suscripciones_lista()
 
     # ---------- EVENTOS ----------
-    tabla.bind("<<TreeviewSelect>>", seleccionar_fila)
+    def on_mes_change(event=None):
+        sel_mes  = combo_mes.get()
+        sel_anio = combo_anio.get()
+        mes_num  = meses.index(sel_mes)  if sel_mes  != "Todos" else None
+        anio     = int(sel_anio)         if sel_anio != "Todos" else None
+        cargar_suscripciones(mes_num, anio)
+
+    combo_mes.bind("<<ComboboxSelected>>",  on_mes_change)
+    combo_anio.bind("<<ComboboxSelected>>", on_mes_change)
+
+    tabla.bind("<<TreeviewSelect>>",          seleccionar_fila)
     tabla_clientes.bind("<<TreeviewSelect>>", seleccionar_cliente)
-    tabla_sus.bind("<<TreeviewSelect>>", seleccionar_suscripcion)
+    tabla_sus.bind("<<TreeviewSelect>>",      seleccionar_suscripcion)
 
     # ---------- BOTONES ----------
     frame_botones = ttk.Frame(contenedor)
     frame_botones.pack(fill=X, pady=12)
 
-    frame_buscar_btn = ttk.Frame(frame_botones)
-    frame_buscar_btn.pack(side="left", padx=10)
-
-    ttk.Button(
-        frame_buscar_btn,
-        text="Buscar",
-        bootstyle="info",
-        width=12,
-        command=buscar_cliente
-    ).pack(side="left", padx=4)
-
-    frame_sus_btn = ttk.Frame(frame_botones)
-    frame_sus_btn.pack(side="left", padx=25)
-
-    ttk.Button(
-        frame_sus_btn,
-        text="Crear Suscripción",
-        bootstyle="primary",
-        width=16,
-        command=crear_suscripcion_rapida
-    ).pack(side="left", padx=4)
-
-    frame_pago_btn = ttk.Frame(frame_botones)
-    frame_pago_btn.pack(side="left", padx=25)
-
-    ttk.Button(
-        frame_pago_btn,
-        text="Registrar Pago",
-        bootstyle="success",
-        width=14,
-        command=pagar
-    ).pack(side="left", padx=4)
-
-    ttk.Button(
-        frame_pago_btn,
-        text="Ver Historial",
-        bootstyle="warning",
-        width=14,
-        command=ver_historial
-    ).pack(side="left", padx=4)
-
-    ttk.Button(
-        frame_pago_btn,
-        text="Eliminar Pago",
-        bootstyle="danger",
-        width=14,
-        command=eliminar_pago_seleccionado
-    ).pack(side="left", padx=4)
-
-    frame_sistema_btn = ttk.Frame(frame_botones)
-    frame_sistema_btn.pack(side="right", padx=10)
-
-    ttk.Button(
-        frame_sistema_btn,
-        text="Actualizar",
-        bootstyle="secondary",
-        width=12,
-        command=lambda: [cargar_clientes(), cargar_suscripciones(), cargar_suscripciones_lista()]
-    ).pack(side="right", padx=4)
+    ttk.Button(frame_botones, text="Buscar", bootstyle="info",
+               width=12, command=buscar_cliente).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Crear Suscripción", bootstyle="primary",
+               width=16, command=crear_suscripcion_rapida).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Registrar Pago", bootstyle="success",
+               width=14, command=pagar).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Ver Historial", bootstyle="warning",
+               width=14, command=ver_historial).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Eliminar Pago", bootstyle="danger",
+               width=14, command=eliminar_pago_seleccionado).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Actualizar", bootstyle="secondary", width=12,
+               command=lambda: [cargar_clientes(), on_mes_change(),
+                                cargar_suscripciones_lista()]).pack(side="right", padx=4)
 
     # ---------- CARGA INICIAL ----------
     cargar_clientes()
