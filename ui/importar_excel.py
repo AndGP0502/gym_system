@@ -442,10 +442,8 @@ def abrir_ventana_importar(parent):
               font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 6))
     ttk.Label(inner, text="  Plantilla estandar  (plantilla_gym.xlsx)",
               font=("Segoe UI", 10)).pack(anchor="w", pady=2)
-    ttk.Label(inner, text="  Formato FIVGYM  (TABLA_FIVGYM.xlsx) — importa clientes,",
+    ttk.Label(inner, text="  Formato FIVGYM  ",
               font=("Segoe UI", 10)).pack(anchor="w")
-    ttk.Label(inner, text="  fichas, datos fisicos, condiciones medicas y suscripciones.",
-              font=("Segoe UI", 10)).pack(anchor="w", pady=(0, 6))
 
     ttk.Separator(inner).pack(fill="x", pady=10)
 
