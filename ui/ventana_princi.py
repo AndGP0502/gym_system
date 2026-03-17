@@ -364,7 +364,7 @@ def iniciar_ventana():
 
     lbl_ayuda_logo = ttk.Label(
         sidebar,
-        text="Clic para cambiar el logo",
+        text="Click para cambiar el logo",
         font=("Segoe UI", 8),
         foreground="gray",
         cursor="hand2"
