@@ -11,7 +11,6 @@ from modulos.ficha_cliente import (
 FOTO_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "..", "assets", "default_avatar.png")
 
-
 def _crear_avatar_default():
     ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets")
     os.makedirs(ruta, exist_ok=True)
@@ -23,7 +22,6 @@ def _crear_avatar_default():
         draw.ellipse([30, 120, 170, 230], fill="#666666")
         img.save(ruta_img)
     return ruta_img
-
 
 def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
 
@@ -402,7 +400,6 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
         height=38, fg_color="#C0392B", hover_color="#922B21",
         command=eliminar_medida_click
     ).pack(anchor="e", padx=20, pady=(5, 18))
-
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 def _safe_float(val: str):
