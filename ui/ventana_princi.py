@@ -11,7 +11,7 @@ from ui.membresias_ui import abrir_ventana_membresias
 from modulos.clientes import contar_clientes, contar_clientes_filtro
 from modulos.membresias import contar_membresias
 from modulos.suscripciones import contar_suscripciones_vencidas, contar_clientes_activos, ver_clientes_activos_detalle, contar_suscripciones_vencidas_filtro, contar_clientes_activos_filtro
-from modulos.backup_db import crear_backup, restaurar_backup
+from modulos.backup_db import crear_backup, exportar_backup_excel, importar_desde_excel
 from modulos.graficas import grafica_clientes
 from ui.importar_excel import abrir_ventana_importar
 from tkinter import messagebox
@@ -23,7 +23,6 @@ import sys
 if getattr(sys, 'frozen', False):
     _RAIZ = os.path.dirname(sys.executable)
 else:
-    # main_ui.py está en gym_system/ui/, assets/ está en gym_system/
     _RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def ruta_assets(nombre_archivo):
@@ -56,13 +55,11 @@ def iniciar_ventana():
     # ---------------- POPUP DE CONTACTO ----------------
 
     def mostrar_contacto(event=None):
-        """Popup pequeño no invasivo con datos de los creadores."""
         popup = ttk.Toplevel(ventana)
         popup.title("Acerca de")
         popup.geometry("340x280")
         popup.resizable(False, False)
 
-        # Centrar el popup relativo a la ventana principal
         ventana.update_idletasks()
         x = ventana.winfo_x() + (ventana.winfo_width()  // 2) - 170
         y = ventana.winfo_y() + (ventana.winfo_height() // 2) - 140
@@ -73,7 +70,6 @@ def iniciar_ventana():
         popup.lift()
         popup.focus_force()
 
-        # --- Cabecera fija (título + separador, fuera del scroll) ---
         frame_header = ttk.Frame(popup, padding=(20, 16, 20, 0))
         frame_header.pack(fill="x")
 
@@ -93,7 +89,6 @@ def iniciar_ventana():
 
         ttk.Separator(frame_header).pack(fill="x")
 
-        # --- Zona con barra de scroll (solo arrastre, sin rueda del mouse) ---
         scroll_frame = ttk.Frame(popup)
         scroll_frame.pack(fill="both", expand=True)
 
@@ -114,9 +109,6 @@ def iniciar_ventana():
 
         inner.bind("<Configure>", _ajustar)
 
-        # ── Aquí van tus datos ────────────────────────────────────────────
-        # Cada entrada: (nombre, correo, teléfono, red_social, url)
-        # Si no tienes red social en alguno, pon ("", "")
         contactos = [
             (
                 "👤 André Garzón",
@@ -133,13 +125,11 @@ def iniciar_ventana():
                 "https://www.facebook.com/share/186cb5uQdG/",
             ),
         ]
-        # ─────────────────────────────────────────────────────────────────
 
         def _abrir_link(url):
-            # Intenta abrir con Chrome; si no está instalado usa el navegador predeterminado
             rutas_chrome = [
-                "C:/Program Files/Google/Chrome/Application/chrome.exe %s",          # Windows 64-bit
-                "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s",    # Windows 32-bit
+                "C:/Program Files/Google/Chrome/Application/chrome.exe %s",
+                "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s",
             ]
             abierto = False
             for ruta in rutas_chrome:
@@ -150,7 +140,7 @@ def iniciar_ventana():
                 except webbrowser.Error:
                     continue
             if not abierto:
-                webbrowser.open_new_tab(url)  # Fallback al navegador predeterminado
+                webbrowser.open_new_tab(url)
 
         for nombre, correo, telefono, red_label, red_url in contactos:
             ttk.Label(inner, text=nombre,
@@ -161,21 +151,18 @@ def iniciar_ventana():
                       font=("Segoe UI", 10), foreground="gray").pack(anchor="w")
 
             if red_label and red_url:
-                # Label que actúa como hipervínculo
                 lbl_link = ttk.Label(
                     inner,
                     text=f"  🔗 {red_label}",
                     font=("Segoe UI", 10, "underline"),
-                    foreground="#4DA6FF",   # azul clickeable
-                    cursor="hand2"          # cursor de manito
+                    foreground="#4DA6FF",
+                    cursor="hand2"
                 )
                 lbl_link.pack(anchor="w", pady=(0, 10))
-                # Captura url en el closure con argumento por defecto
                 lbl_link.bind("<Button-1>", lambda e, u=red_url: _abrir_link(u))
             else:
                 ttk.Label(inner, text="").pack(pady=(0, 4))
 
-        # --- Botón cerrar fijo abajo ---
         frame_footer = ttk.Frame(popup, padding=(20, 8, 20, 14))
         frame_footer.pack(fill="x")
 
@@ -200,24 +187,19 @@ def iniciar_ventana():
         except Exception:
             mes_num = None
             anio    = None
-            sel_mes = sel_anio = "Todos" 
+            sel_mes = sel_anio = "Todos"
 
-        # Clientes registrados — filtrado por mes/año de registro
         numero_clientes.config(text=str(
             contar_clientes_filtro(mes_num, anio) if (mes_num or anio) else contar_clientes()
         ))
-        # Membresías — siempre total
         numero_membresias.config(text=str(contar_membresias()))
-        # Vencidas — filtrado por mes/año de vencimiento
         numero_vencidas.config(text=str(
             contar_suscripciones_vencidas_filtro(mes_num, anio) if (mes_num or anio) else contar_suscripciones_vencidas()
         ))
-        # Activos — filtrado por mes/año de inicio
         numero_activos.config(text=str(
             contar_clientes_activos_filtro(mes_num, anio) if (mes_num or anio) else contar_clientes_activos()
         ))
 
-        # Info del filtro activo
         try:
             filtro = []
             if mes_num: filtro.append(meses_dash[mes_num])
@@ -234,45 +216,47 @@ def iniciar_ventana():
         grafica_clientes(frame_grafica)
 
     def hacer_backup():
+        """Crea backup binario .db clásico."""
         try:
             ruta = crear_backup()
             messagebox.showinfo("Backup creado", f"Backup guardado en:\n{ruta}")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo crear el backup:\n{e}")
 
-    def hacer_restauracion():
+    def hacer_backup_excel():
+        """Exporta todos los datos a un archivo Excel organizado por hojas."""
         try:
-            archivo = restaurar_backup()
-            if archivo:
-                messagebox.showinfo(
-                    "Backup restaurado",
-                    "Base restaurada correctamente.\nReinicia el sistema."
-                )
+            ruta = exportar_backup_excel()
+            if not ruta:
+                return  # El usuario canceló el diálogo
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo exportar el backup Excel:\n{e}")
+
+    def hacer_restauracion_excel():
+        """Restaura la BD desde un archivo Excel generado previamente."""
+        try:
+            ok = importar_desde_excel()
+            if ok:
                 ventana.destroy()
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo restaurar:\n{e}")
+            messagebox.showerror("Error", f"No se pudo restaurar desde Excel:\n{e}")
 
     # ---------------- LAYOUT PRINCIPAL ----------------
-    # Scrollbar global al extremo derecho de toda la ventana
 
     import tkinter as tk_raw
 
-    # Frame raíz que ocupa toda la ventana
     root_frame = ttk.Frame(ventana)
     root_frame.pack(fill="both", expand=True)
     root_frame.columnconfigure(0, weight=1)
     root_frame.rowconfigure(0, weight=1)
 
-    # Canvas principal que envuelve TODO (sidebar + contenido)
     main_canvas = tk_raw.Canvas(root_frame, highlightthickness=0)
     main_canvas.grid(row=0, column=0, sticky="nsew")
 
-    # Scrollbar global al extremo derecho
     global_sb = ttk.Scrollbar(root_frame, orient="vertical", command=main_canvas.yview)
     global_sb.grid(row=0, column=1, sticky="ns")
     main_canvas.configure(yscrollcommand=global_sb.set)
 
-    # Frame interno que contiene sidebar + área principal
     contenedor = ttk.Frame(main_canvas)
     main_canvas.create_window((0, 0), window=contenedor, anchor="nw", tags="contenedor")
 
@@ -296,15 +280,14 @@ def iniciar_ventana():
     sidebar = ttk.Frame(contenedor, padding=30)
     sidebar.grid(row=0, column=0, sticky="ns")
 
-    # FIX: se agrega cursor="hand2" y bind a mostrar_contacto
     lbl_titulo = ttk.Label(
         sidebar,
         text="Software de Control A&D",
         font=("Segoe UI", 16, "bold"),
-        cursor="hand2"          # ← el cursor cambia a manito al pasar encima
+        cursor="hand2"
     )
     lbl_titulo.pack(pady=(0, 25))
-    lbl_titulo.bind("<Button-1>", mostrar_contacto)   # ← abre el popup al hacer click
+    lbl_titulo.bind("<Button-1>", mostrar_contacto)
 
     boton_style = {"width": 22, "padding": 10}
 
@@ -336,13 +319,18 @@ def iniciar_ventana():
     ttk.Separator(sidebar).pack(fill="x", pady=20)
 
     ttk.Button(
-        sidebar, text="💾 Crear Backup", bootstyle="success",
+        sidebar, text="💾 Crear Backup (.db)", bootstyle="success",
         command=hacer_backup, **boton_style
     ).pack(pady=6)
 
     ttk.Button(
-        sidebar, text="♻ Restaurar Backup", bootstyle="warning",
-        command=hacer_restauracion, **boton_style
+        sidebar, text="📊 Exportar Backup Excel", bootstyle="success-outline",
+        command=hacer_backup_excel, **boton_style
+    ).pack(pady=6)
+
+    ttk.Button(
+        sidebar, text="♻ Restaurar desde Excel", bootstyle="warning",
+        command=hacer_restauracion_excel, **boton_style
     ).pack(pady=6)
 
     ttk.Separator(sidebar).pack(fill="x", pady=20)
@@ -380,7 +368,6 @@ def iniciar_ventana():
     def cargar_logo():
         ruta = ruta_assets_lectura("logo_gym.jpg")
 
-        # Si no existe el .jpg, intenta convertir el .ico automáticamente
         if not os.path.exists(ruta):
             ruta_ico = ruta_assets_lectura("logo_gym.ico")
             if os.path.exists(ruta_ico):
@@ -507,7 +494,6 @@ def iniciar_ventana():
     contenido_inferior.columnconfigure(0, weight=1)
     contenido_inferior.columnconfigure(1, weight=1)
 
-
     # ---- Actividad reciente ----
     actividad = ttk.Frame(contenido_inferior, padding=30)
     actividad.grid(row=1, column=0, sticky="nw", padx=(0, 10), pady=10)
@@ -554,7 +540,6 @@ def iniciar_ventana():
         ttk2.Label(frame, text="Clientes cuya suscripcion no ha vencido a la fecha de hoy.",
                    font=("Segoe UI", 10), foreground="gray").pack(anchor="w", pady=(0, 14))
 
-        # Tabla
         tabla_container = ttk2.Frame(frame)
         tabla_container.pack(fill="both", expand=True)
 
@@ -579,7 +564,6 @@ def iniciar_ventana():
         tabla_act.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
 
-        # Footer con contador
         frame_footer = ttk2.Frame(frame, padding=(0, 10, 0, 0))
         frame_footer.pack(fill="x")
         lbl_count = ttk2.Label(frame_footer, text="", font=("Segoe UI", 11, "bold"), bootstyle="success")

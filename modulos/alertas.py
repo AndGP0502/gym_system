@@ -1,6 +1,6 @@
 from datetime import datetime
 import urllib.parse
-import webbrowser
+import subprocess
 import sqlite3
 import os
 
@@ -9,7 +9,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, "..", "gym.db")
 
 # ── Ruta de Chrome ───────────────────────────────────────────────────────────
-CHROME_PATH = "C:/Program Files/Google/Chrome/Application/chrome.exe %s"
+CHROME_PATH = "C:/Program Files/Google/Chrome/Application/chrome.exe"
 
 
 def formatear_telefono_url(numero: str) -> str:
@@ -22,10 +22,10 @@ def formatear_telefono_url(numero: str) -> str:
 
 
 def _abrir_en_chrome(url: str):
-    try:
-        webbrowser.get(CHROME_PATH).open(url)
-    except webbrowser.Error:
-        webbrowser.open(url)
+    if os.path.exists(CHROME_PATH):
+        subprocess.Popen([CHROME_PATH, url])
+    else:
+        os.startfile(url)
 
 
 def _abrir_whatsapp_web(telefono: str, mensaje: str):
@@ -52,9 +52,10 @@ def dias_restantes(id_cliente: int) -> int | None:
 
     try:
         vence = datetime.strptime(fila[0], "%Y-%m-%d")
-        delta = (vence - datetime.now()).days
+        delta = (vence.date() - datetime.now().date()).days  # FIX: comparar solo fechas, sin desfase de horas
         return delta
-    except Exception:
+    except Exception as e:
+        print(f"[ERROR] Parseo de fecha fallido para cliente {id_cliente}: {e} | valor: {fila[0]}")
         return None
 
 
