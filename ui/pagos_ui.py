@@ -12,7 +12,7 @@ from modulos.pagos import (
 )
 from modulos.clientes import ver_clientes
 from modulos.suscripciones import ver_suscripciones_completas, crear_suscripcion
-
+from modulos.pdf_generador import generar_pdf_reporte_mensual
 
 def abrir_ventana_pagos(parent):
 
@@ -480,6 +480,14 @@ def abrir_ventana_pagos(parent):
                width=14, command=ver_historial).pack(side="left", padx=4)
     ttk.Button(frame_botones, text="Eliminar Pago", bootstyle="danger",
                width=14, command=eliminar_pago_seleccionado).pack(side="left", padx=4)
+    
+    ttk.Button(frame_botones, text="📊 Reporte PDF", bootstyle="info",
+           width=16, command=lambda: generar_pdf_reporte_mensual(
+               ventana,
+               meses.index(combo_mes.get()) if combo_mes.get() != "Todos" else None,
+               int(combo_anio.get()) if combo_anio.get() != "Todos" else None
+           )).pack(side="left", padx=4)
+    
     ttk.Button(frame_botones, text="Actualizar", bootstyle="secondary", width=12,
                command=lambda: [cargar_clientes(), on_mes_change(),
                                 cargar_suscripciones_lista()]).pack(side="right", padx=4)

@@ -10,7 +10,7 @@ from modulos.clientes import agregar_cliente, ver_clientes, eliminar_cliente, ed
 from modulos.alertas import enviar_recordatorio_manual
 from modulos.suscripciones import renovar_suscripcion_cliente
 from ui.ficha_ui import abrir_ficha_cliente
-
+from modulos.pdf_generador import generar_pdf_ficha_cliente
 
 def abrir_ventana_clientes(parent):
 
@@ -415,6 +415,19 @@ def abrir_ventana_clientes(parent):
         text_color="white",
         command=ver_ficha
     ).grid(row=3, column=0, padx=12, pady=6, sticky="ew")
+
+    ctk.CTkButton(
+        frame_botones,
+        text="📥 Descargar PDF",
+        height=45,
+        corner_radius=12,
+        font=("Segoe UI", 14, "bold"),
+        fg_color="#6c757d",
+        hover_color="#5a6268",
+        text_color="white",
+        command=lambda: generar_pdf_ficha_cliente(ventana, cliente_seleccionado,
+            tabla.item(tabla.selection()[0], "values")[1] if tabla.selection() else "")
+        ).grid(row=4, column=0, padx=12, pady=6, sticky="ew")
 
     # UTILIDADES
     ctk.CTkLabel(

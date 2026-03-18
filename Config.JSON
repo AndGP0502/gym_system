@@ -1,3 +1,7 @@
 {
-    "clave_emergencia": "12345"
+    "clave_emergencia": "12345",
+    "nombre_gimnasio": "Andre",
+    "telefono": "0997155838",
+    "direccion": "Nayon",
+    "correo": "lol@gmail.com"
 }

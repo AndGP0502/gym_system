@@ -2,7 +2,6 @@ import sqlite3
 import os
 import sys
 
-
 def obtener_ruta_db():
     if getattr(sys, 'frozen', False):
         # Cuando corre como .exe

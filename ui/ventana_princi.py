@@ -3,6 +3,7 @@ import webbrowser
 from ttkbootstrap.constants import *
 
 from ui.clientes_ui import abrir_ventana_clientes
+from ui.configuracion_ui import abrir_ventana_configuracion
 from ui.pagos_ui import abrir_ventana_pagos
 from ui.suscripciones_ui import abrir_ventana_suscripciones
 from ui.membresias_ui import abrir_ventana_membresias
@@ -352,6 +353,11 @@ def iniciar_ventana():
     ).pack(pady=6)
 
     ttk.Separator(sidebar).pack(fill="x", pady=20)
+
+    ttk.Button(
+        sidebar, text="⚙ Configuración", bootstyle="secondary-outline",
+        command=lambda: abrir_ventana_configuracion(ventana), **boton_style
+    ).pack(pady=6)
 
     ttk.Button(
         sidebar, text="❌ Salir",
