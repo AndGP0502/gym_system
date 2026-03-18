@@ -34,16 +34,18 @@ def abrir_ventana_pagos(parent):
     ventana.attributes("-topmost", True)
     ventana.after(200, lambda: ventana.attributes("-topmost", False))
 
-    # ---------- SCROLL ----------
+    # ---------- SCROLL PRINCIPAL ----------
+    # FIX: se usa un Frame contenedor + Canvas propio con scrollbar,
+    # pero el mousewheel ya NO usa bind_all — usa bind localizado por widget.
     contenedor_principal = tk.Frame(ventana, bg="#1e1e1e")
     contenedor_principal.pack(fill=BOTH, expand=True)
 
     canvas = tk.Canvas(contenedor_principal, bg="#1e1e1e", highlightthickness=0, bd=0)
-    canvas.pack(side=LEFT, fill=BOTH, expand=True)
-
     scrollbar = ttk.Scrollbar(contenedor_principal, orient=VERTICAL, command=canvas.yview)
-    scrollbar.pack(side=RIGHT, fill=Y)
     canvas.configure(yscrollcommand=scrollbar.set)
+
+    scrollbar.pack(side=RIGHT, fill=Y)
+    canvas.pack(side=LEFT, fill=BOTH, expand=True)
 
     frame_scroll = tk.Frame(canvas, bg="#1e1e1e")
     window_id = canvas.create_window((0, 0), window=frame_scroll, anchor="nw")
@@ -57,27 +59,38 @@ def abrir_ventana_pagos(parent):
     frame_scroll.bind("<Configure>", actualizar_scrollregion)
     canvas.bind("<Configure>", ajustar_ancho_frame)
 
-    def _on_mousewheel_principal(event):
+    # FIX SCROLL: en lugar de bind_all que interfiere con Treeview internos,
+    # se bindea el mousewheel solo al canvas y al frame_scroll.
+    # Cada Treeview maneja su propio scroll con bind localizado (<Enter>/<Leave>).
+    def _scroll_canvas(event):
         if not canvas.winfo_exists():
-            return "break"
-        try:
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        except Exception:
-            pass
-        return "break"
+            return
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
-    ventana.bind_all("<MouseWheel>", _on_mousewheel_principal)
-    ventana.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
-    ventana.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
-
-    # ---------- ESTILOS ----------
-    style = ttk.Style()
-    style.configure("Treeview", font=("Segoe UI", 10), rowheight=35)
-    style.configure("Treeview.Heading", font=("Segoe UI", 12, "bold"))
+    canvas.bind("<MouseWheel>", _scroll_canvas)
+    frame_scroll.bind("<MouseWheel>", _scroll_canvas)
 
     # ---------- CONTENEDOR ----------
     contenedor = tk.Frame(frame_scroll, bg="#1e1e1e", padx=16, pady=16)
     contenedor.pack(fill=BOTH, expand=True)
+
+    # FIX: propagar mousewheel al canvas desde el contenedor y sus hijos no-Treeview
+    def _propagar_scroll(widget):
+        """Bindea mousewheel al canvas en un widget y todos sus descendientes no-Treeview."""
+        if isinstance(widget, (ttk.Treeview,)):
+            return  # los Treeview manejan su propio scroll
+        widget.bind("<MouseWheel>", _scroll_canvas)
+        for hijo in widget.winfo_children():
+            _propagar_scroll(hijo)
+
+    # Se llama después de construir toda la UI (al final de esta función)
+
+    # ---------- ESTILOS ----------
+    # FIX: el Style se configura UNA sola vez con un nombre personalizado
+    # para no contaminar el estilo global de otras ventanas.
+    style = ttk.Style()
+    style.configure("Pagos.Treeview",         font=("Segoe UI", 10), rowheight=35)
+    style.configure("Pagos.Treeview.Heading", font=("Segoe UI", 11, "bold"))
 
     # ---------- HEADER ----------
     frame_header = ttk.Frame(contenedor, bootstyle="dark")
@@ -110,7 +123,6 @@ def abrir_ventana_pagos(parent):
     lbl_total_valor      = hacer_card(frame_cards, "#3b5f86", "Total Suscripciones")
     lbl_total_pagadas    = hacer_card(frame_cards, "#13c29a", "Pagadas")
     lbl_total_pendientes = hacer_card(frame_cards, "#3d9ad6", "Pendientes")
-    # NUEVO: card de total recaudado en dinero
     lbl_total_recaudado  = hacer_card(frame_cards, "#6f42c1", "Total Recaudado ($)")
 
     # ---------- CLIENTES Y SUSCRIPCIONES ----------
@@ -124,12 +136,15 @@ def abrir_ventana_pagos(parent):
     frame_clientes.grid(row=0, column=0, padx=(0, 8), sticky="nsew")
     frame_cs = ttk.Frame(frame_clientes)
     frame_cs.pack(fill=BOTH, expand=YES)
+
+    # FIX: estilo con nombre propio para no pisar otras ventanas
     tabla_clientes = ttk.Treeview(frame_cs, columns=("ID", "Nombre"),
-                                   show="headings", height=6)
+                                   show="headings", height=6,
+                                   style="Pagos.Treeview")
     tabla_clientes.heading("ID",     text="ID")
     tabla_clientes.heading("Nombre", text="Nombre")
-    tabla_clientes.column("ID",     width=100, anchor="center")
-    tabla_clientes.column("Nombre", width=260, anchor="center")
+    tabla_clientes.column("ID",     width=100, anchor="center", minwidth=60)
+    tabla_clientes.column("Nombre", width=260, anchor="w",      minwidth=100)
     tabla_clientes.pack(side=LEFT, fill=BOTH, expand=YES)
     sc = ttk.Scrollbar(frame_cs, orient=VERTICAL, command=tabla_clientes.yview)
     sc.pack(side=RIGHT, fill=Y)
@@ -140,29 +155,36 @@ def abrir_ventana_pagos(parent):
     frame_sus.grid(row=0, column=1, padx=(8, 0), sticky="nsew")
     frame_ss = ttk.Frame(frame_sus)
     frame_ss.pack(fill=BOTH, expand=YES)
+
     tabla_sus = ttk.Treeview(frame_ss, columns=("ID", "Cliente", "Plan"),
-                              show="headings", height=6)
+                              show="headings", height=6,
+                              style="Pagos.Treeview")
     tabla_sus.heading("ID",      text="ID Suscripción")
     tabla_sus.heading("Cliente", text="Cliente")
     tabla_sus.heading("Plan",    text="Plan")
-    tabla_sus.column("ID",      anchor="center", width=50)
-    tabla_sus.column("Cliente", anchor="center", width=180)
-    tabla_sus.column("Plan",    anchor="center", width=150)
+    tabla_sus.column("ID",      anchor="center", width=50,  minwidth=40)
+    tabla_sus.column("Cliente", anchor="w",      width=180, minwidth=80)
+    tabla_sus.column("Plan",    anchor="w",      width=150, minwidth=80)
     tabla_sus.pack(side=LEFT, fill=BOTH, expand=YES)
     ss = ttk.Scrollbar(frame_ss, orient=VERTICAL, command=tabla_sus.yview)
     ss.pack(side=RIGHT, fill=Y)
     tabla_sus.configure(yscrollcommand=ss.set)
 
-    def scroll_clientes_mouse(event):
-        tabla_clientes.yview_scroll(int(-1*(event.delta/120)), "units"); return "break"
-    def scroll_sus_mouse(event):
-        tabla_sus.yview_scroll(int(-1*(event.delta/120)), "units"); return "break"
-    def restaurar_scroll(event=None):
-        ventana.bind_all("<MouseWheel>", _on_mousewheel_principal)
-    tabla_clientes.bind("<Enter>", lambda e: ventana.bind_all("<MouseWheel>", scroll_clientes_mouse))
-    tabla_clientes.bind("<Leave>", restaurar_scroll)
-    tabla_sus.bind("<Enter>",     lambda e: ventana.bind_all("<MouseWheel>", scroll_sus_mouse))
-    tabla_sus.bind("<Leave>",     restaurar_scroll)
+    # FIX SCROLL TREEVIEW: cada Treeview captura el mousewheel solo cuando
+    # el cursor está encima, y lo devuelve al canvas cuando sale.
+    def _hacer_scroll_local(treeview):
+        def _on_enter(e):
+            def _scroll_tv(ev):
+                treeview.yview_scroll(int(-1 * (ev.delta / 120)), "units")
+                return "break"
+            treeview._scroll_binding = ventana.bind("<MouseWheel>", _scroll_tv)
+        def _on_leave(e):
+            ventana.unbind("<MouseWheel>")
+        treeview.bind("<Enter>", _on_enter)
+        treeview.bind("<Leave>", _on_leave)
+
+    _hacer_scroll_local(tabla_clientes)
+    _hacer_scroll_local(tabla_sus)
 
     # ---------- SELECTOR DE MES Y AÑO ----------
     frame_mes = ttk.Frame(contenedor)
@@ -193,18 +215,18 @@ def abrir_ventana_pagos(parent):
                                   padding=10, bootstyle="info")
     frame_tabla.pack(fill=BOTH, expand=True, pady=8)
 
-    # NUEVO: columna "Acumulado ($)" al final muestra la suma total pagada
     columnas = ("ID", "Cliente", "Plan", "Total", "Pagado", "Pendiente",
                 "Inicio", "Vence", "Acumulado ($)")
-    tabla = ttk.Treeview(frame_tabla, columns=columnas, show="headings", height=10)
+    tabla = ttk.Treeview(frame_tabla, columns=columnas, show="headings",
+                         height=10, style="Pagos.Treeview")
 
     for col in columnas:
         tabla.heading(col, text=col)
-        tabla.column(col, width=120, anchor=CENTER)
+        tabla.column(col, width=120, anchor=CENTER, minwidth=60)
 
-    tabla.column("Cliente",       width=220, anchor=W)
-    tabla.column("Plan",          width=180, anchor=W)
-    tabla.column("Acumulado ($)", width=130, anchor=CENTER)
+    tabla.column("Cliente",       width=220, anchor=W,      minwidth=100)
+    tabla.column("Plan",          width=180, anchor=W,      minwidth=80)
+    tabla.column("Acumulado ($)", width=130, anchor=CENTER, minwidth=80)
 
     tabla.tag_configure("pagado",  background="#b6f2c6", foreground="#0f5132")
     tabla.tag_configure("parcial", background="#fff3cd", foreground="#664d03")
@@ -219,10 +241,7 @@ def abrir_ventana_pagos(parent):
     frame_tabla.grid_rowconfigure(0, weight=1)
     frame_tabla.grid_columnconfigure(0, weight=1)
 
-    def _on_mousewheel_tabla(event):
-        tabla.yview_scroll(int(-1*(event.delta/120)), "units"); return "break"
-    tabla.bind("<Enter>", lambda e: ventana.bind_all("<MouseWheel>", _on_mousewheel_tabla))
-    tabla.bind("<Leave>", restaurar_scroll)
+    _hacer_scroll_local(tabla)
 
     # ---------- PANEL INFERIOR ----------
     frame_inferior = ttk.Frame(contenedor)
@@ -254,7 +273,6 @@ def abrir_ventana_pagos(parent):
     ttk.Label(frame_pago, text="Monto pagado").grid(row=1, column=0, padx=8, pady=6, sticky=W)
     entry_monto = ttk.Entry(frame_pago, width=18)
     entry_monto.grid(row=1, column=1, padx=8, pady=6, sticky=W)
-
 
     # ---------- PANEL CAMBIAR PLAN ----------
     frame_cambiar = ttk.Labelframe(contenedor, text="Cambiar plan del cliente",
@@ -314,7 +332,6 @@ def abrir_ventana_pagos(parent):
         from datetime import datetime, timedelta
         hoy = datetime.now()
 
-        # Fecha inicio: usar la ingresada o hoy
         fi_raw = entry_fecha_inicio_nuevo.get().strip()
         if fi_raw:
             try:
@@ -325,7 +342,6 @@ def abrir_ventana_pagos(parent):
         else:
             fecha_inicio = hoy.strftime("%Y-%m-%d")
 
-        # Fecha vence: usar la ingresada o calcular automáticamente
         fv_raw = entry_fecha_vence_nuevo.get().strip()
         if fv_raw:
             try:
@@ -336,7 +352,7 @@ def abrir_ventana_pagos(parent):
         else:
             fecha_dt    = datetime.strptime(fecha_inicio, "%Y-%m-%d")
             fecha_vence = (fecha_dt + timedelta(days=duracion)).strftime("%Y-%m-%d")
-        pendiente        = max(0.0, precio_plan - monto)
+        pendiente = max(0.0, precio_plan - monto)
         con = sqlite3.connect(DB_PATH)
         fila = con.execute("SELECT cliente_id FROM suscripciones WHERE id=?", (sus_id,)).fetchone()
         if not fila:
@@ -346,12 +362,10 @@ def abrir_ventana_pagos(parent):
         cliente_id = fila[0]
         con.execute("DELETE FROM pagos WHERE suscripcion_id=?", (sus_id,))
         con.execute("DELETE FROM suscripciones WHERE id=?", (sus_id,))
-        # Reutilizar el ID más bajo disponible en suscripciones
         ids_sus = set(r[0] for r in con.execute("SELECT id FROM suscripciones ORDER BY id").fetchall())
         nuevo_sus_id = 1
         while nuevo_sus_id in ids_sus:
             nuevo_sus_id += 1
-
         con.execute(
             "INSERT INTO suscripciones (id, cliente_id, membresia_id, fecha_inicio, fecha_vencimiento, precio_total, pagado, pendiente) VALUES (?,?,?,?,?,?,?,?)",
             (nuevo_sus_id, cliente_id, id_mem_new, fecha_inicio, fecha_vence, precio_plan, monto, pendiente)
@@ -371,9 +385,6 @@ def abrir_ventana_pagos(parent):
         cargar_suscripciones_lista()
         messagebox.showinfo("Listo",
             f"Plan actualizado.\nNuevo vencimiento: {fecha_vence}", parent=ventana)
-
-    ttk.Button(frame_cambiar, text="Cambiar Plan", bootstyle="warning",
-               width=14, command=cambiar_plan).grid(row=0, column=6, padx=10, pady=6)
 
     def _sync_sus_cambiar(sus_id):
         entry_sus_cambiar.delete(0, END)
@@ -414,11 +425,8 @@ def abrir_ventana_pagos(parent):
             tabla.delete(fila)
         datos = listar_suscripciones_para_pago()
 
-        # Filtrar por año
         if anio:
             datos = [s for s in datos if s[7] and str(s[7]).startswith(str(anio))]
-
-        # Filtrar por mes
         if mes_num:
             mes_str = f"{mes_num:02d}"
             datos_filtrados = [s for s in datos if s[7] and str(s[7])[5:7] == mes_str]
@@ -437,14 +445,13 @@ def abrir_ventana_pagos(parent):
             fila = (id_suscripcion, cliente, plan,
                     f"{total:.2f}", f"{pagado:.2f}", f"{pendiente:.2f}",
                     inicio, vence, f"${pagado:.2f}")
-            if total == 0 and pagado == 0:          tag = "deuda"
-            elif pagado >= total and total > 0:     tag = "pagado"
-            elif pagado > 0:                        tag = "parcial"
-            else:                                   tag = "deuda"
+            if total == 0 and pagado == 0:      tag = "deuda"
+            elif pagado >= total and total > 0: tag = "pagado"
+            elif pagado > 0:                    tag = "parcial"
+            else:                               tag = "deuda"
             tabla.insert("", END, values=fila, tags=(tag,))
         actualizar_cards(datos_filtrados)
 
-        # Info debajo del selector
         total_rec = sum(float(s[5]) for s in datos_filtrados)
         n = len(datos_filtrados)
         filtro = []
@@ -477,7 +484,6 @@ def abrir_ventana_pagos(parent):
             fila = (id_s, cliente, plan,
                     f"{total:.2f}", f"{pagado:.2f}", f"{pendiente:.2f}",
                     inicio, vence, f"${pagado:.2f}")
-            # FIX: si total=0 y pagado=0 es deuda, no pagado
             if total == 0 and pagado == 0:         tag = "deuda";   pendientes_c += 1
             elif pagado >= total and total > 0:    tag = "pagado";  pagadas += 1
             elif pagado > 0:                       tag = "parcial"; pendientes_c += 1
@@ -539,13 +545,14 @@ def abrir_ventana_pagos(parent):
         vh.title("Historial de Pagos"); vh.geometry("520x350")
         frame_hist = ttk.Frame(vh, padding=10)
         frame_hist.pack(fill=BOTH, expand=True)
-        th = ttk.Treeview(frame_hist, columns=("ID Pago", "Monto", "Fecha"), show="headings")
+        th = ttk.Treeview(frame_hist, columns=("ID Pago", "Monto", "Fecha"),
+                          show="headings", style="Pagos.Treeview")
         th.heading("ID Pago", text="ID Pago")
         th.heading("Monto",   text="Monto")
         th.heading("Fecha",   text="Fecha")
-        th.column("ID Pago", width=100, anchor=CENTER)
-        th.column("Monto",   width=120, anchor=CENTER)
-        th.column("Fecha",   width=180, anchor=CENTER)
+        th.column("ID Pago", width=100, anchor=CENTER, minwidth=60)
+        th.column("Monto",   width=120, anchor=CENTER, minwidth=60)
+        th.column("Fecha",   width=180, anchor=CENTER, minwidth=80)
         th.pack(fill=BOTH, expand=True)
         for pago_id, monto, fecha in historial:
             th.insert("", END, values=(pago_id, monto, fecha))
@@ -589,13 +596,11 @@ def abrir_ventana_pagos(parent):
     def resetear_pago():
         suscripcion = entry_id.get().strip()
         if not suscripcion:
-            messagebox.showerror("Error", "Selecciona una suscripcion primero", parent=ventana)
-            return
+            messagebox.showerror("Error", "Selecciona una suscripcion primero", parent=ventana); return
         try:
             suscripcion = int(suscripcion)
         except ValueError:
-            messagebox.showerror("Error", "ID invalido", parent=ventana)
-            return
+            messagebox.showerror("Error", "ID invalido", parent=ventana); return
         if not messagebox.askyesno("Confirmar",
             "Esto pondra el monto pagado en $0 y eliminara el historial de pagos.\n¿Continuar?",
             parent=ventana):
@@ -650,3 +655,6 @@ def abrir_ventana_pagos(parent):
     cargar_suscripciones()
     cargar_suscripciones_lista()
     cargar_planes_combo()
+
+    # FIX FINAL: propagar scroll al canvas desde todos los frames no-Treeview
+    ventana.after(100, lambda: _propagar_scroll(contenedor))

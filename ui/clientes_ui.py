@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox
+import tkinter as tk
 from datetime import datetime, timedelta
 from collections import Counter
 
@@ -29,8 +30,44 @@ def abrir_ventana_clientes(parent):
     ventana.after(200, lambda: ventana.attributes("-topmost", False))
     ventana.grab_set()
 
-    scroll = ctk.CTkScrollableFrame(ventana, fg_color="#2b2b2b")
-    scroll.pack(fill="both", expand=True, padx=15, pady=15)
+    # FIX: reemplazar CTkScrollableFrame por Canvas + Scrollbar nativo
+    canvas_principal = tk.Canvas(ventana, highlightthickness=0, bg="#2b2b2b")
+    scrollbar_principal = ttk.Scrollbar(ventana, orient="vertical",
+                                        command=canvas_principal.yview)
+    canvas_principal.configure(yscrollcommand=scrollbar_principal.set)
+    scrollbar_principal.pack(side="right", fill="y")
+    canvas_principal.pack(side="left", fill="both", expand=True)
+
+    scroll = ctk.CTkFrame(canvas_principal, fg_color="#2b2b2b")
+    scroll_id = canvas_principal.create_window((0, 0), window=scroll, anchor="nw")
+
+    def _ajustar_scroll(event=None):
+        canvas_principal.configure(scrollregion=canvas_principal.bbox("all"))
+
+    def _ajustar_ancho(event):
+        canvas_principal.itemconfig(scroll_id, width=event.width)
+
+    scroll.bind("<Configure>", _ajustar_scroll)
+    canvas_principal.bind("<Configure>", _ajustar_ancho)
+
+    def _scroll_principal(event):
+        if canvas_principal.winfo_exists():
+            canvas_principal.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    canvas_principal.bind("<MouseWheel>", _scroll_principal)
+    scroll.bind("<MouseWheel>", _scroll_principal)
+
+    # FIX: scroll local para Treeview sin interferir con el canvas
+    def _scroll_local_treeview(treeview):
+        def _on_enter(e):
+            def _tv_scroll(ev):
+                treeview.yview_scroll(int(-1 * (ev.delta / 120)), "units")
+                return "break"
+            ventana.bind("<MouseWheel>", _tv_scroll)
+        def _on_leave(e):
+            ventana.unbind("<MouseWheel>")
+        treeview.bind("<Enter>", _on_enter)
+        treeview.bind("<Leave>", _on_leave)
 
     # ── HEADER ───────────────────────────────────────────────────────────────
     frame_header = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
@@ -39,7 +76,7 @@ def abrir_ventana_clientes(parent):
     ctk.CTkLabel(frame_header, text="Clientes del Gimnasio",
                  font=("Segoe UI", 28, "bold"), text_color="white").pack(side="left", padx=20, pady=20)
     ctk.CTkLabel(frame_header, text="Administra, busca, edita y elimina clientes registrados",
-                 font=("Segoe UI", 14), text_color="#d6d6d6").pack(side="left", padx=(0,10), pady=20)
+                 font=("Segoe UI", 14), text_color="#d6d6d6").pack(side="left", padx=(0, 10), pady=20)
     ctk.CTkButton(frame_header, text="← Volver al menú", width=170, height=40,
                   font=("Segoe UI", 14, "bold"), corner_radius=12,
                   fg_color="#2A2A2A", hover_color="#3A3A3A",
@@ -51,35 +88,35 @@ def abrir_ventana_clientes(parent):
 
     card_total = ctk.CTkFrame(frame_stats, corner_radius=15, fg_color="#1f6aa5")
     card_total.pack(side="left", padx=10, pady=10, expand=True, fill="both")
-    ctk.CTkLabel(card_total, text="Total Clientes", font=("Segoe UI", 16, "bold"), text_color="white").pack(pady=(15,5))
+    ctk.CTkLabel(card_total, text="Total Clientes", font=("Segoe UI", 16, "bold"), text_color="white").pack(pady=(15, 5))
     numero_total = ctk.CTkLabel(card_total, text="0", font=("Segoe UI", 32, "bold"), text_color="white")
-    numero_total.pack(pady=(0,15))
+    numero_total.pack(pady=(0, 15))
 
     card_activos = ctk.CTkFrame(frame_stats, corner_radius=15, fg_color="#198754")
     card_activos.pack(side="left", padx=10, pady=10, expand=True, fill="both")
-    ctk.CTkLabel(card_activos, text="Clientes Activos", font=("Segoe UI", 16, "bold"), text_color="white").pack(pady=(15,5))
+    ctk.CTkLabel(card_activos, text="Clientes Activos", font=("Segoe UI", 16, "bold"), text_color="white").pack(pady=(15, 5))
     numero_activos = ctk.CTkLabel(card_activos, text="0", font=("Segoe UI", 32, "bold"), text_color="white")
-    numero_activos.pack(pady=(0,15))
+    numero_activos.pack(pady=(0, 15))
 
     card_hoy = ctk.CTkFrame(frame_stats, corner_radius=15, fg_color="#0d6efd")
     card_hoy.pack(side="left", padx=10, pady=10, expand=True, fill="both")
-    ctk.CTkLabel(card_hoy, text="Nuevos Hoy", font=("Segoe UI", 16, "bold"), text_color="white").pack(pady=(15,5))
+    ctk.CTkLabel(card_hoy, text="Nuevos Hoy", font=("Segoe UI", 16, "bold"), text_color="white").pack(pady=(15, 5))
     numero_hoy = ctk.CTkLabel(card_hoy, text="0", font=("Segoe UI", 32, "bold"), text_color="white")
-    numero_hoy.pack(pady=(0,15))
+    numero_hoy.pack(pady=(0, 15))
 
     # ── GRÁFICO ───────────────────────────────────────────────────────────────
     frame_grafico = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
     frame_grafico.pack(fill="x", padx=10, pady=10)
     ctk.CTkLabel(frame_grafico, text="Clientes registrados por mes",
-                 font=("Segoe UI", 20, "bold"), text_color="white").pack(anchor="w", padx=20, pady=(15,5))
+                 font=("Segoe UI", 20, "bold"), text_color="white").pack(anchor="w", padx=20, pady=(15, 5))
     grafico_container = ctk.CTkFrame(frame_grafico, fg_color="#3f3f3f", corner_radius=15)
-    grafico_container.pack(fill="x", padx=15, pady=(0,15))
+    grafico_container.pack(fill="x", padx=15, pady=(0, 15))
     fig = Figure(figsize=(10, 3.5), dpi=100)
     ax  = fig.add_subplot(111)
     fig.patch.set_facecolor("#3f3f3f")
     ax.set_facecolor("#3f3f3f")
-    canvas = FigureCanvasTkAgg(fig, master=grafico_container)
-    canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+    canvas_fig = FigureCanvasTkAgg(fig, master=grafico_container)
+    canvas_fig.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
 
     # ── FORMULARIO ───────────────────────────────────────────────────────────
     frame_top  = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
@@ -89,7 +126,7 @@ def abrir_ventana_clientes(parent):
 
     ctk.CTkLabel(frame_form, text="Formulario de Cliente",
                  font=("Segoe UI", 20, "bold"), text_color="white").grid(
-        row=0, column=0, columnspan=4, sticky="w", padx=20, pady=(15,20))
+        row=0, column=0, columnspan=4, sticky="w", padx=20, pady=(15, 20))
 
     ctk.CTkLabel(frame_form, text="Nombre", font=("Segoe UI", 15, "bold"), text_color="white").grid(row=1, column=0, padx=20, pady=10, sticky="w")
     entry_nombre = ctk.CTkEntry(frame_form, width=320, height=40, placeholder_text="Nombre completo")
@@ -118,20 +155,27 @@ def abrir_ventana_clientes(parent):
                                 placeholder_text="Buscar por nombre, cédula o teléfono")
     entry_buscar.pack(side="right", padx=20, pady=15)
     ctk.CTkLabel(frame_info, text="Buscar cliente:", font=("Segoe UI", 15, "bold"),
-                 text_color="white").pack(side="right", padx=(10,5), pady=15)
+                 text_color="white").pack(side="right", padx=(10, 5), pady=15)
 
     # ── TABLA ─────────────────────────────────────────────────────────────────
+    # FIX: estilo con nombre propio "Clientes.Treeview" para no pisar
+    # los estilos de otras ventanas abiertas simultáneamente
     style = ttk.Style()
-    style.configure("Clientes.Treeview", background="#3a3a3a", foreground="white",
-                    fieldbackground="#3a3a3a", rowheight=34, font=("Segoe UI", 12))
-    style.configure("Treeview.Heading", background="#2f2f2f", foreground="white",
+    style.configure("Clientes.Treeview",
+                    background="#3a3a3a", foreground="white",
+                    fieldbackground="#3a3a3a", rowheight=34,
+                    font=("Segoe UI", 12))
+    style.configure("Clientes.Treeview.Heading",
+                    background="#2f2f2f", foreground="white",
                     font=("Segoe UI", 13, "bold"))
-    style.map("Treeview", background=[("selected", "#1f6aa5")], foreground=[("selected", "white")])
+    style.map("Clientes.Treeview",
+              background=[("selected", "#1f6aa5")],
+              foreground=[("selected", "white")])
 
     frame_tabla = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
     frame_tabla.pack(fill="both", expand=True, padx=10, pady=10)
     ctk.CTkLabel(frame_tabla, text="Lista de Clientes",
-                 font=("Segoe UI", 20, "bold"), text_color="white").pack(anchor="w", padx=20, pady=(15,5))
+                 font=("Segoe UI", 20, "bold"), text_color="white").pack(anchor="w", padx=20, pady=(15, 5))
     tabla_container = ctk.CTkFrame(frame_tabla, fg_color="transparent")
     tabla_container.pack(fill="both", expand=True, padx=15, pady=10)
 
@@ -143,15 +187,18 @@ def abrir_ventana_clientes(parent):
     tabla.heading("Cedula",   text="Cédula")
     tabla.heading("Telefono", text="Teléfono")
     tabla.heading("Fecha",    text="Fecha Registro")
-    tabla.column("ID",       width=70,  anchor="center")
-    tabla.column("Nombre",   width=320, anchor="center")
-    tabla.column("Cedula",   width=180, anchor="center")
-    tabla.column("Telefono", width=180, anchor="center")
-    tabla.column("Fecha",    width=180, anchor="center")
+    tabla.column("ID",       width=70,  anchor="center", minwidth=50)
+    tabla.column("Nombre",   width=320, anchor="w",      minwidth=120)
+    tabla.column("Cedula",   width=180, anchor="center", minwidth=80)
+    tabla.column("Telefono", width=180, anchor="center", minwidth=80)
+    tabla.column("Fecha",    width=180, anchor="center", minwidth=80)
+
     scrollbar_y = ttk.Scrollbar(tabla_container, orient="vertical", command=tabla.yview)
     tabla.configure(yscrollcommand=scrollbar_y.set)
     tabla.pack(side="left", fill="both", expand=True)
     scrollbar_y.pack(side="right", fill="y")
+
+    _scroll_local_treeview(tabla)
 
     cliente_seleccionado = None
 
@@ -177,7 +224,7 @@ def abrir_ventana_clientes(parent):
         ax.spines["top"].set_color("#3f3f3f")
         ax.spines["right"].set_color("#3f3f3f")
         ax.grid(axis="y", linestyle="--", alpha=0.3)
-        canvas.draw()
+        canvas_fig.draw()
 
     def actualizar_tarjetas(clientes):
         total   = len(clientes)
@@ -236,7 +283,6 @@ def abrir_ventana_clientes(parent):
         if not all([nombre, cedula, telefono, fecha]):
             messagebox.showerror("Error", "Todos los campos son obligatorios")
             return
-        
         aceptar_datos = messagebox.askyesno(
             "Consentimiento de uso de datos",
             "Al continuar con el registro, el cliente autoriza el uso de sus datos personales "
@@ -245,12 +291,10 @@ def abrir_ventana_clientes(parent):
             "La información será tratada de manera confidencial y no será compartida con terceros "
             "ajenos a la gestión del servicio.\n\n"
             "¿Desea aceptar y continuar con el registro?"
-    )
-        
+        )
         if not aceptar_datos:
             messagebox.showinfo("Registro cancelado", "No se realizó el registro del cliente.")
             return
-    
         mensaje = agregar_cliente(nombre, cedula, telefono, fecha)
         if "correctamente" in mensaje:
             messagebox.showinfo("Éxito", mensaje)
@@ -357,159 +401,81 @@ def abrir_ventana_clientes(parent):
         abrir_ficha_cliente(ventana, cliente_seleccionado, nombre)
 
     # ── BOTONES ───────────────────────────────────────────────────────────────
-    contenedor_botones = ctk.CTkFrame(
-        scroll,
-        corner_radius=18,
-        fg_color="#343434"
-    )
+    contenedor_botones = ctk.CTkFrame(scroll, corner_radius=18, fg_color="#343434")
     contenedor_botones.pack(fill="x", padx=10, pady=(10, 20))
 
     frame_botones = ctk.CTkFrame(contenedor_botones, fg_color="transparent")
     frame_botones.pack(fill="x", padx=20, pady=20)
 
-    # 3 columnas principales
     frame_botones.grid_columnconfigure(0, weight=1)
     frame_botones.grid_columnconfigure(1, weight=1)
     frame_botones.grid_columnconfigure(2, weight=1)
 
     # GESTIÓN
-    ctk.CTkLabel(
-        frame_botones,
-        text="Gestión",
-        font=("Segoe UI", 18, "bold"),
-        text_color="white"
-    ).grid(row=0, column=0, pady=(0, 12))
+    ctk.CTkLabel(frame_botones, text="Gestión",
+                 font=("Segoe UI", 18, "bold"), text_color="white").grid(row=0, column=0, pady=(0, 12))
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Agregar Cliente",
-        height=45,
-        corner_radius=12,
-        font=("Segoe UI", 14, "bold"),
-        fg_color="#198754",
-        hover_color="#157347",
-        text_color="white",
-        command=agregar
-    ).grid(row=1, column=0, padx=12, pady=6, sticky="ew")
+    ctk.CTkButton(frame_botones, text="Agregar Cliente", height=45, corner_radius=12,
+                  font=("Segoe UI", 14, "bold"), fg_color="#198754", hover_color="#157347",
+                  text_color="white", command=agregar).grid(row=1, column=0, padx=12, pady=6, sticky="ew")
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Editar Cliente",
-        height=45,
-        corner_radius=12,
-        font=("Segoe UI", 14, "bold"),
-        fg_color="#f0ad4e",
-        hover_color="#d9962f",
-        text_color="black",
-        command=editar
-    ).grid(row=2, column=0, padx=12, pady=6, sticky="ew")
+    ctk.CTkButton(frame_botones, text="Editar Cliente", height=45, corner_radius=12,
+                  font=("Segoe UI", 14, "bold"), fg_color="#f0ad4e", hover_color="#d9962f",
+                  text_color="black", command=editar).grid(row=2, column=0, padx=12, pady=6, sticky="ew")
 
-    ctk.CTkButton(
-        frame_botones,
-        text="📄 Ver ficha",
-        height=45,
-        corner_radius=12,
-        font=("Segoe UI", 14, "bold"),
-        fg_color="#1f6aa5",
-        hover_color="#174f7a",
-        text_color="white",
-        command=ver_ficha
-    ).grid(row=3, column=0, padx=12, pady=6, sticky="ew")
+    ctk.CTkButton(frame_botones, text="📄 Ver ficha", height=45, corner_radius=12,
+                  font=("Segoe UI", 14, "bold"), fg_color="#1f6aa5", hover_color="#174f7a",
+                  text_color="white", command=ver_ficha).grid(row=3, column=0, padx=12, pady=6, sticky="ew")
 
-    ctk.CTkButton(
-        frame_botones,
-        text="📥 Descargar PDF",
-        height=45,
-        corner_radius=12,
-        font=("Segoe UI", 14, "bold"),
-        fg_color="#6c757d",
-        hover_color="#5a6268",
-        text_color="white",
-        command=lambda: generar_pdf_ficha_cliente(ventana, cliente_seleccionado,
-            tabla.item(tabla.selection()[0], "values")[1] if tabla.selection() else "")
-        ).grid(row=4, column=0, padx=12, pady=6, sticky="ew")
+    ctk.CTkButton(frame_botones, text="📥 Descargar PDF", height=45, corner_radius=12,
+                  font=("Segoe UI", 14, "bold"), fg_color="#6c757d", hover_color="#5a6268",
+                  text_color="white",
+                  command=lambda: generar_pdf_ficha_cliente(
+                      ventana, cliente_seleccionado,
+                      tabla.item(tabla.selection()[0], "values")[1] if tabla.selection() else ""
+                  )).grid(row=4, column=0, padx=12, pady=6, sticky="ew")
 
     # UTILIDADES
-    ctk.CTkLabel(
-        frame_botones,
-        text="Utilidades",
-        font=("Segoe UI", 18, "bold"),
-        text_color="white"
-    ).grid(row=0, column=1, pady=(0, 12))
+    ctk.CTkLabel(frame_botones, text="Utilidades",
+                 font=("Segoe UI", 18, "bold"), text_color="white").grid(row=0, column=1, pady=(0, 12))
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Limpiar",
-        height=45,
-        corner_radius=12,
-        font=("Segoe UI", 14, "bold"),
-        fg_color="gray35",
-        hover_color="gray25",
-        text_color="white",
-        command=limpiar_campos
-    ).grid(row=1, column=1, padx=12, pady=6, sticky="ew")
+    ctk.CTkButton(frame_botones, text="Limpiar", height=45, corner_radius=12,
+                  font=("Segoe UI", 14, "bold"), fg_color="gray35", hover_color="gray25",
+                  text_color="white", command=limpiar_campos).grid(row=1, column=1, padx=12, pady=6, sticky="ew")
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Actualizar Lista",
-        height=45,
-        corner_radius=12,
-        font=("Segoe UI", 14, "bold"),
-        fg_color="#0d6efd",
-        hover_color="#0b5ed7",
-        text_color="white",
-        command=cargar_clientes
-    ).grid(row=2, column=1, padx=12, pady=6, sticky="ew")
+    ctk.CTkButton(frame_botones, text="Actualizar Lista", height=45, corner_radius=12,
+                  font=("Segoe UI", 14, "bold"), fg_color="#0d6efd", hover_color="#0b5ed7",
+                  text_color="white", command=cargar_clientes).grid(row=2, column=1, padx=12, pady=6, sticky="ew")
 
-   # botón vacío para alinear la columna
-    ctk.CTkLabel(
-        frame_botones,
-        text="",
-        fg_color="transparent"
-    ).grid(row=3, column=1, padx=12, pady=6, sticky="ew")
+    ctk.CTkLabel(frame_botones, text="", fg_color="transparent").grid(row=3, column=1, padx=12, pady=6, sticky="ew")
 
-# ACCIONES ESPECIALES
-    ctk.CTkLabel(
-        frame_botones,
-        text="Acciones especiales",
-        font=("Segoe UI", 18, "bold"),
-       text_color="white"
-    ).grid(row=0, column=2, pady=(0, 12))
+    # ACCIONES ESPECIALES
+    ctk.CTkLabel(frame_botones, text="Acciones especiales",
+                 font=("Segoe UI", 18, "bold"), text_color="white").grid(row=0, column=2, pady=(0, 12))
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Renovar +30 días",
-        height=45,
-        corner_radius=12,
-        font=("Segoe UI", 14, "bold"),
-        fg_color="#20c997",
-        hover_color="#17a589",
-        text_color="white",
-        command=renovar_suscripcion
-    ).grid(row=1, column=2, padx=12, pady=6, sticky="ew")
+    ctk.CTkButton(frame_botones, text="Renovar +30 días", height=45, corner_radius=12,
+                  font=("Segoe UI", 14, "bold"), fg_color="#20c997", hover_color="#17a589",
+                  text_color="white", command=renovar_suscripcion).grid(row=1, column=2, padx=12, pady=6, sticky="ew")
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Enviar alerta WPP",
-        height=45,
-        corner_radius=12,
-        font=("Segoe UI", 14, "bold"),
-        fg_color="#6f42c1",
-        hover_color="#5a32a3",
-        text_color="white",
-        command=enviar_whatsapp_manual
-    ).grid(row=2, column=2, padx=12, pady=6, sticky="ew")
+    ctk.CTkButton(frame_botones, text="Enviar alerta WPP", height=45, corner_radius=12,
+                  font=("Segoe UI", 14, "bold"), fg_color="#6f42c1", hover_color="#5a32a3",
+                  text_color="white", command=enviar_whatsapp_manual).grid(row=2, column=2, padx=12, pady=6, sticky="ew")
 
-    ctk.CTkButton(
-        frame_botones,
-        text="Eliminar Cliente",
-        height=45,
-        corner_radius=12,
-        font=("Segoe UI", 14, "bold"),
-        fg_color="#dc3545",
-        hover_color="#bb2d3b",
-        text_color="white",
-        command=eliminar
-    ).grid(row=3, column=2, padx=12, pady=6, sticky="ew")
+    ctk.CTkButton(frame_botones, text="Eliminar Cliente", height=45, corner_radius=12,
+                  font=("Segoe UI", 14, "bold"), fg_color="#dc3545", hover_color="#bb2d3b",
+                  text_color="white", command=eliminar).grid(row=3, column=2, padx=12, pady=6, sticky="ew")
+
+    # FIX FINAL: propagar scroll al canvas desde frames no-Treeview
+    def _propagar(widget):
+        if isinstance(widget, ttk.Treeview):
+            return
+        try:
+            widget.bind("<MouseWheel>", _scroll_principal)
+        except Exception:
+            pass
+        for hijo in widget.winfo_children():
+            _propagar(hijo)
+
+    ventana.after(150, lambda: _propagar(scroll))
 
     cargar_clientes()

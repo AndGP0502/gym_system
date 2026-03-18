@@ -1,12 +1,13 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox, simpledialog
+import tkinter as tk
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import sqlite3
 import json
 import os
-from datetime import datetime  # ← FIX: importado para validar y normalizar fechas
+from datetime import datetime
 
 from modulos.suscripciones import (
     asignar_membresia,
@@ -38,10 +39,7 @@ DB_PATH     = _get_db_path()
 CONFIG_PATH = _get_config_path()
 
 
-# ── Helpers de configuración ─────────────────────────────────────────────────
-
 def leer_clave() -> str:
-    """Lee la clave de emergencia desde config.json."""
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             return json.load(f).get("clave_emergencia", "12345")
@@ -50,7 +48,6 @@ def leer_clave() -> str:
 
 
 def guardar_clave(nueva_clave: str):
-    """Guarda la nueva clave en config.json."""
     config = {}
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -62,34 +59,19 @@ def guardar_clave(nueva_clave: str):
         json.dump(config, f, indent=4, ensure_ascii=False)
 
 
-# ── Helper de validación de fecha ─────────────────────────────────────────────
-# FIX PRINCIPAL: función centralizada para parsear y validar fechas.
-# Antes, la fecha se pasaba como string crudo sin validar. Si el usuario
-# escribía un formato incorrecto (ej: "2024/01/15" en vez de "2024-01-15"),
-# asignar_membresia podía fallar silenciosamente o usar la fecha de hoy.
-
 def validar_fecha(fecha_str: str) -> str | None:
-    """
-    Valida y normaliza una fecha ingresada por el usuario.
-    Acepta formatos: YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY.
-    Retorna siempre en formato YYYY-MM-DD, o None si es inválida.
-    """
     fecha_str = fecha_str.strip()
     if not fecha_str:
-        return None  # Vacío → usar fecha de hoy (comportamiento por defecto)
-
+        return None
     formatos = ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"]
     for fmt in formatos:
         try:
             dt = datetime.strptime(fecha_str, fmt)
-            return dt.strftime("%Y-%m-%d")  # Siempre devuelve YYYY-MM-DD
+            return dt.strftime("%Y-%m-%d")
         except ValueError:
             continue
+    return False
 
-    return False  # Formato no reconocido → error a mostrar al usuario
-
-
-# ── Ventana principal ─────────────────────────────────────────────────────────
 
 def abrir_ventana_suscripciones(parent):
 
@@ -110,8 +92,48 @@ def abrir_ventana_suscripciones(parent):
         ventana.focus_force()
         ventana.after(200, lambda: ventana.attributes("-topmost", False))
 
-    scroll = ctk.CTkScrollableFrame(ventana)
-    scroll.pack(fill="both", expand=True)
+    # FIX: reemplazar CTkScrollableFrame por Canvas + Scrollbar nativo.
+    # CTkScrollableFrame interfiere con ttk.Treeview causando distorsión
+    # de columnas y letras cortadas al hacer scroll rápido.
+    canvas_principal = tk.Canvas(ventana, highlightthickness=0, bg="#2b2b2b")
+    scrollbar_principal = ttk.Scrollbar(ventana, orient="vertical",
+                                        command=canvas_principal.yview)
+    canvas_principal.configure(yscrollcommand=scrollbar_principal.set)
+
+    scrollbar_principal.pack(side="right", fill="y")
+    canvas_principal.pack(side="left", fill="both", expand=True)
+
+    scroll = ctk.CTkFrame(canvas_principal, fg_color="#2b2b2b")
+    scroll_id = canvas_principal.create_window((0, 0), window=scroll, anchor="nw")
+
+    def _ajustar_scroll(event=None):
+        canvas_principal.configure(scrollregion=canvas_principal.bbox("all"))
+
+    def _ajustar_ancho(event):
+        canvas_principal.itemconfig(scroll_id, width=event.width)
+
+    scroll.bind("<Configure>", _ajustar_scroll)
+    canvas_principal.bind("<Configure>", _ajustar_ancho)
+
+    # FIX SCROLL: scroll localizado al canvas, no bind_all
+    def _scroll_principal(event):
+        if canvas_principal.winfo_exists():
+            canvas_principal.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    canvas_principal.bind("<MouseWheel>", _scroll_principal)
+    scroll.bind("<MouseWheel>", _scroll_principal)
+
+    # FIX: helper reutilizable para dar scroll local a cada Treeview
+    def _scroll_local_treeview(treeview):
+        def _on_enter(e):
+            def _tv_scroll(ev):
+                treeview.yview_scroll(int(-1 * (ev.delta / 120)), "units")
+                return "break"
+            ventana.bind("<MouseWheel>", _tv_scroll)
+        def _on_leave(e):
+            ventana.unbind("<MouseWheel>")
+        treeview.bind("<Enter>", _on_enter)
+        treeview.bind("<Leave>", _on_leave)
 
     # ---------- HEADER ----------
     frame_header = ctk.CTkFrame(scroll, corner_radius=18)
@@ -198,28 +220,39 @@ def abrir_ventana_suscripciones(parent):
     tabla_container = ctk.CTkFrame(frame_tabla)
     tabla_container.pack(fill="both", expand=True, padx=15, pady=10)
 
+    # FIX: estilo con nombre propio para no contaminar otras ventanas
+    style = ttk.Style()
+    style.configure("Sus.Treeview",         font=("Segoe UI", 11), rowheight=34)
+    style.configure("Sus.Treeview.Heading", font=("Segoe UI", 11, "bold"))
+
     columnas = ("ID", "Cliente", "Plan", "Inicio", "Vence", "Pagado", "Pendiente", "Estado")
 
     tabla = ttk.Treeview(
         tabla_container,
         columns=columnas,
         show="headings",
-        height=10
+        height=10,
+        style="Sus.Treeview"
     )
 
     for col in columnas:
         tabla.heading(col, text=col)
 
-    tabla.column("ID",        anchor="center", width=50)
-    tabla.column("Cliente",   anchor="center", width=180)
-    tabla.column("Plan",      anchor="center", width=150)
-    tabla.column("Inicio",    anchor="center", width=110)
-    tabla.column("Vence",     anchor="center", width=110)
-    tabla.column("Pagado",    anchor="center", width=100)
-    tabla.column("Pendiente", anchor="center", width=100)
-    tabla.column("Estado",    anchor="center", width=120)
+    tabla.column("ID",        anchor="center", width=50,  minwidth=40)
+    tabla.column("Cliente",   anchor="w",      width=180, minwidth=80)
+    tabla.column("Plan",      anchor="w",      width=150, minwidth=80)
+    tabla.column("Inicio",    anchor="center", width=110, minwidth=80)
+    tabla.column("Vence",     anchor="center", width=110, minwidth=80)
+    tabla.column("Pagado",    anchor="center", width=100, minwidth=60)
+    tabla.column("Pendiente", anchor="center", width=100, minwidth=60)
+    tabla.column("Estado",    anchor="center", width=120, minwidth=60)
 
-    tabla.pack(fill="both", expand=True)
+    sb_tabla = ttk.Scrollbar(tabla_container, orient="vertical", command=tabla.yview)
+    tabla.configure(yscrollcommand=sb_tabla.set)
+    tabla.pack(side="left", fill="both", expand=True)
+    sb_tabla.pack(side="right", fill="y")
+
+    _scroll_local_treeview(tabla)
 
     def recargar_tabla():
         for fila in tabla.get_children():
@@ -324,7 +357,6 @@ def abrir_ventana_suscripciones(parent):
             if not val_cliente or not val_membresia or not val_precio or not val_pagado:
                 lbl_error.configure(text="Completa todos los campos obligatorios.")
                 return
-
             try:
                 cliente   = int(val_cliente)
                 membresia = int(val_membresia)
@@ -334,9 +366,6 @@ def abrir_ventana_suscripciones(parent):
                 lbl_error.configure(text="ID debe ser entero, precio y pagado deben ser numeros.")
                 return
 
-            # FIX POPUP: validar y normalizar la fecha antes de pasarla.
-            # Antes: se pasaba el string crudo directamente, sin verificar
-            # si el formato era correcto ni si era realmente una fecha válida.
             fecha_validada = validar_fecha(val_fecha)
             if fecha_validada is False:
                 lbl_error.configure(
@@ -344,13 +373,7 @@ def abrir_ventana_suscripciones(parent):
                 )
                 return
 
-            # FIX POPUP: siempre se pasa fecha_inicio explícitamente.
-            # Antes: se bifurcaba en dos llamadas (con/sin fecha), lo que
-            # provocaba que registros con fecha vacía usaran date.today()
-            # internamente, pero registros con fecha antigua a veces fallaban
-            # si asignar_membresia no manejaba bien el parámetro posicional.
             asignar_membresia(cliente, membresia, precio, pagado, fecha_validada)
-
             recargar_tabla()
             cargar_grafico_ingresos()
             popup.destroy()
@@ -389,7 +412,7 @@ def abrir_ventana_suscripciones(parent):
             return
 
         popup = ctk.CTkToplevel(ventana)
-        popup.title(f"Editar fechas")
+        popup.title("Editar fechas")
         popup.geometry("460x260")
         popup.resizable(False, False)
         popup.attributes("-topmost", True)
@@ -457,14 +480,12 @@ def abrir_ventana_suscripciones(parent):
         ("Ver todas",           recargar_tabla),
     ]
 
-    # Fila 1: botones de vista
     for i, (txt, cmd) in enumerate(botones_vista):
         ctk.CTkButton(
             frame_botones, text=txt,
             width=165, height=40, command=cmd
         ).grid(row=0, column=i, padx=6, pady=(10, 4))
 
-    # Fila 2: acciones
     ctk.CTkButton(
         frame_botones,
         text="+ Agregar suscripcion",
@@ -523,7 +544,6 @@ def abrir_ventana_suscripciones(parent):
             messagebox.showerror("Error", "Completa todos los campos obligatorios.", parent=ventana)
             traer_al_frente()
             return
-
         try:
             cliente   = int(val_c)
             membresia = int(val_m)
@@ -534,9 +554,7 @@ def abrir_ventana_suscripciones(parent):
             traer_al_frente()
             return
 
-        # FIX FORMULARIO FIJO: igual que en el popup, validar y normalizar
-        # la fecha antes de pasarla a asignar_membresia.
-        val_fecha_raw = entry_fecha.get().strip()
+        val_fecha_raw  = entry_fecha.get().strip()
         fecha_validada = validar_fecha(val_fecha_raw)
         if fecha_validada is False:
             messagebox.showerror(
@@ -547,16 +565,9 @@ def abrir_ventana_suscripciones(parent):
             traer_al_frente()
             return
 
-        # FIX FORMULARIO FIJO: siempre se llama con fecha_inicio explícita.
-        # None indica "usar hoy", string válido indica fecha personalizada.
-        # Antes: se bifurcaba en dos llamadas distintas según si había fecha,
-        # lo que era frágil. Ahora asignar_membresia recibe siempre el mismo
-        # número de argumentos y decide internamente qué hacer con None.
         asignar_membresia(cliente, membresia, precio, pagado, fecha_validada)
-
         for e in entries:
             e.delete(0, ctk.END)
-
         recargar_tabla()
         cargar_grafico_ingresos()
         traer_al_frente()
@@ -587,7 +598,6 @@ def abrir_ventana_suscripciones(parent):
         text_color="gray60"
     ).pack(anchor="w", padx=20, pady=(0, 15))
 
-    # ── Cambiar contraseña ────────────────────────────────────────────────────
     ctk.CTkLabel(
         frame_emergencia,
         text="Cambiar contraseña de administrador",
@@ -621,22 +631,15 @@ def abrir_ventana_suscripciones(parent):
         nueva      = entry_clave_nueva.get().strip()
         confirmar  = entry_clave_confirmar.get().strip()
         clave_real = leer_clave()
-
         if actual != clave_real:
             messagebox.showerror("Error", "La contraseña actual es incorrecta.", parent=ventana)
-            traer_al_frente()
-            return
-
+            traer_al_frente(); return
         if not nueva:
             messagebox.showwarning("Advertencia", "La nueva contraseña no puede estar vacía.", parent=ventana)
-            traer_al_frente()
-            return
-
+            traer_al_frente(); return
         if nueva != confirmar:
             messagebox.showerror("Error", "La nueva contraseña y la confirmación no coinciden.", parent=ventana)
-            traer_al_frente()
-            return
-
+            traer_al_frente(); return
         guardar_clave(nueva)
         entry_clave_actual.delete(0, ctk.END)
         entry_clave_nueva.delete(0, ctk.END)
@@ -653,37 +656,28 @@ def abrir_ventana_suscripciones(parent):
         command=cambiar_clave
     ).pack(side="left")
 
-    # ── Botón borrar todo ─────────────────────────────────────────────────────
     def borrar_todo():
         if not messagebox.askyesno(
             "Borrar toda la base de datos",
             "Estas seguro? Se eliminaran clientes, suscripciones, pagos y alertas.\nEsta accion NO se puede deshacer.",
             parent=ventana
         ):
-            traer_al_frente()
-            return
+            traer_al_frente(); return
 
         clave = simpledialog.askstring(
             "Contrasena de administrador",
             "Ingresa la contrasena para continuar:",
-            show="*",
-            parent=ventana
+            show="*", parent=ventana
         )
-
         if clave is None:
-            traer_al_frente()
-            return
-
+            traer_al_frente(); return
         if clave != leer_clave():
             messagebox.showerror("Contrasena incorrecta", "La contrasena ingresada no es correcta.", parent=ventana)
-            traer_al_frente()
-            return
+            traer_al_frente(); return
 
         try:
             con = sqlite3.connect(DB_PATH)
-            # Desactivar foreign keys temporalmente para poder borrar en cualquier orden
             con.execute("PRAGMA foreign_keys = OFF")
-            # Orden correcto: primero tablas dependientes, luego las principales
             for t in ["pagos", "alertas_enviadas", "suscripciones", "membresias", "clientes"]:
                 try:
                     con.execute(f"DELETE FROM {t}")
@@ -693,12 +687,10 @@ def abrir_ventana_suscripciones(parent):
             con.execute("PRAGMA foreign_keys = ON")
             con.commit()
             con.close()
-
             recargar_tabla()
             cargar_grafico_ingresos()
             traer_al_frente()
             messagebox.showinfo("Listo", "Base de datos limpiada. IDs reiniciados desde 1.", parent=ventana)
-
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo limpiar:\n{e}", parent=ventana)
             traer_al_frente()
@@ -712,3 +704,16 @@ def abrir_ventana_suscripciones(parent):
         hover_color="#FF0000",
         command=borrar_todo
     ).pack(padx=20, pady=(0, 20))
+
+    # FIX FINAL: propagar scroll al canvas desde frames CTk no-Treeview
+    def _propagar(widget):
+        if isinstance(widget, ttk.Treeview):
+            return
+        try:
+            widget.bind("<MouseWheel>", _scroll_principal)
+        except Exception:
+            pass
+        for hijo in widget.winfo_children():
+            _propagar(hijo)
+
+    ventana.after(150, lambda: _propagar(scroll))
