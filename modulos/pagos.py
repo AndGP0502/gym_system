@@ -2,9 +2,7 @@ import sqlite3
 from datetime import datetime
 import os
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "..", "gym.db")
-
+from database.db_path import DB_PATH
 
 def registrar_pago(suscripcion_id, monto):
     con = sqlite3.connect(DB_PATH)

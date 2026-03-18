@@ -6,8 +6,19 @@ import sqlite3
 import os
 from datetime import datetime
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH  = os.path.join(BASE_DIR, "..", "gym.db")
+import sys as _sys
+
+def _get_db_path():
+    if getattr(_sys, 'frozen', False):
+        return os.path.join(os.path.dirname(_sys.executable), "gym.db")
+    here = os.path.dirname(os.path.abspath(__file__))
+    # Try current dir first, then parent
+    candidate = os.path.join(here, "gym.db")
+    if os.path.exists(candidate):
+        return candidate
+    return os.path.normpath(os.path.join(here, "..", "gym.db"))
+
+DB_PATH = _get_db_path()
 
 # ── Planes FIVGYM ─────────────────────────────────────────────────────────────
 PLANES_FIVGYM = {
@@ -101,11 +112,13 @@ def _parsear_numero(valor) -> float | None:
 def _obtener_o_crear_membresia(nombre_plan: str, precio: float, duracion: int) -> int:
     con = _con()
     cur = con.cursor()
-
     # Detectar qué columna usa esta BD para el nombre del plan
-    cur.execute("PRAGMA table_info(membresias)")
-    cols = [row[1] for row in cur.fetchall()]
-    col_nombre = "nombre_plan" if "nombre_plan" in cols else "nombre"
+    try:
+        cur.execute("PRAGMA table_info(membresias)")
+        cols = [row[1] for row in cur.fetchall()]
+        col_nombre = "nombre_plan" if "nombre_plan" in cols else "nombre"
+    except Exception:
+        col_nombre = "nombre_plan"
 
     cur.execute(f"SELECT id FROM membresias WHERE {col_nombre} = ?", (nombre_plan,))
     fila = cur.fetchone()
@@ -128,6 +141,21 @@ def _obtener_o_crear_membresia(nombre_plan: str, precio: float, duracion: int) -
 def importar_plantilla(ruta: str) -> dict:
     wb = openpyxl.load_workbook(ruta, data_only=True)
     resultados = {"clientes": 0, "membresias": 0, "errores": []}
+
+    # Verificar duplicados
+    con_check = _con()
+    total_existente = con_check.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
+    con_check.close()
+    if total_existente > 0:
+        from tkinter import messagebox
+        if not messagebox.askyesno(
+            "Datos existentes",
+            f"Ya hay {total_existente} clientes en la base de datos.\n\n"
+            "Si importas de nuevo se DUPLICARAN los datos.\n\n"
+            "¿Deseas continuar de todas formas?"
+        ):
+            resultados["errores"].append("Importacion cancelada por el usuario.")
+            return resultados
 
     if "Membresias" in wb.sheetnames:
         ws = wb["Membresias"]
@@ -169,26 +197,57 @@ def importar_fivgym(ruta: str) -> dict:
     wb = openpyxl.load_workbook(ruta, data_only=True)
     resultados = {"clientes": 0, "fichas": 0, "suscripciones": 0, "errores": []}
 
+    # ── Verificar si ya fue importado antes ───────────────────────────────────
+    con_check = _con()
+    total_existente = con_check.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
+    con_check.close()
+    if total_existente > 0:
+        from tkinter import messagebox
+        if not messagebox.askyesno(
+            "Datos existentes",
+            f"Ya hay {total_existente} clientes en la base de datos.\n\n"
+            "Si importas de nuevo se DUPLICARAN los datos.\n\n"
+            "¿Deseas continuar de todas formas?\n"
+            "(Solo hazlo si la BD fue limpiada antes)"
+        ):
+            resultados["errores"].append("Importacion cancelada por el usuario.")
+            return resultados
+
     # ── Una sola conexión para todo el proceso ────────────────────────────────
     con = _con()
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA foreign_keys = OFF")
 
-    # Detectar columna nombre de membresías
-    cols_mem = [r[1] for r in con.execute("PRAGMA table_info(membresias)").fetchall()]
-    col_nombre_mem = "nombre_plan" if "nombre_plan" in cols_mem else "nombre"
+    # Detectar columna nombre de membresías de forma robusta
+    try:
+        cols_mem = [r[1] for r in con.execute("PRAGMA table_info(membresias)").fetchall()]
+        col_nombre_mem = "nombre_plan" if "nombre_plan" in cols_mem else "nombre"
+    except Exception:
+        col_nombre_mem = "nombre_plan"
 
     def obtener_o_crear_mem_local(nombre_plan, precio, duracion):
-        fila = con.execute(
-            f"SELECT id FROM membresias WHERE {col_nombre_mem} = ?", (nombre_plan,)
-        ).fetchone()
-        if fila:
-            return fila[0]
-        cur = con.execute(
-            f"INSERT INTO membresias ({col_nombre_mem}, precio, duracion_dias) VALUES (?,?,?)",
-            (nombre_plan, precio, duracion)
-        )
-        return cur.lastrowid
+        try:
+            # Buscar existente
+            fila = con.execute(
+                f"SELECT id FROM membresias WHERE {col_nombre_mem} = ?", (nombre_plan,)
+            ).fetchone()
+            if fila:
+                return fila[0]
+            # Crear nueva — intentar con nombre_plan primero, luego nombre
+            try:
+                cur = con.execute(
+                    "INSERT INTO membresias (nombre_plan, precio, duracion_dias) VALUES (?,?,?)",
+                    (nombre_plan, precio, duracion)
+                )
+            except Exception:
+                cur = con.execute(
+                    "INSERT INTO membresias (nombre, precio, duracion_dias) VALUES (?,?,?)",
+                    (nombre_plan, precio, duracion)
+                )
+            return cur.lastrowid
+        except Exception as e:
+            resultados["errores"].append(f"Membresia '{nombre_plan}': {e}")
+            return None
 
     # ── PASO 1: leer DATOS INFORMATIVOS ──────────────────────────────────────
     ws_info = wb["DATOS INFORMATIVOS"]
@@ -352,10 +411,9 @@ def importar_fivgym(ruta: str) -> dict:
             continue
 
         info_plan = PLANES_FIVGYM.get(plan, {"duracion": 30, "precio": sus["total"]})
-        try:
-            id_mem = obtener_o_crear_mem_local(plan, info_plan["precio"], info_plan["duracion"])
-        except Exception as e:
-            resultados["errores"].append(f"Membresia '{plan}': {e}")
+        id_mem = obtener_o_crear_mem_local(plan, info_plan["precio"], info_plan["duracion"])
+        if not id_mem:
+            resultados["errores"].append(f"Fila {num} '{nombre}': no se pudo crear membresia '{plan}'")
             continue
 
         # FIX: si no hay pagos registrados en el Excel, pagado = 0
@@ -442,9 +500,8 @@ def abrir_ventana_importar(parent):
               font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 6))
     ttk.Label(inner, text="  Plantilla estandar  (plantilla_gym.xlsx)",
               font=("Segoe UI", 10)).pack(anchor="w", pady=2)
-    ttk.Label(inner, text="  Formato FIVGYM  ",
+    ttk.Label(inner, text="  Formato FIVGYM ",
               font=("Segoe UI", 10)).pack(anchor="w")
-
     ttk.Separator(inner).pack(fill="x", pady=10)
 
     lbl_estado = ttk.Label(inner, text="", font=("Segoe UI", 10), justify="center")
@@ -474,11 +531,22 @@ def abrir_ventana_importar(parent):
                 )
             elif formato == "fivgym":
                 res = importar_fivgym(ruta)
+                if res.get("errores") == ["Importacion cancelada por el usuario."]:
+                    lbl_estado.configure(text="Importacion cancelada.")
+                    return
+                # Contar membresías creadas
+                import sqlite3 as _sq
+                _con2 = _sq.connect(DB_PATH)
+                cols = [r[1] for r in _con2.execute("PRAGMA table_info(membresias)").fetchall()]
+                col_n = "nombre_plan" if "nombre_plan" in cols else "nombre"
+                n_mem = _con2.execute(f"SELECT COUNT(*) FROM membresias").fetchone()[0]
+                _con2.close()
                 msg = (
                     f"Importacion completada:\n\n"
                     f"  Clientes importados:      {res['clientes']}\n"
                     f"  Fichas importadas:        {res['fichas']}\n"
                     f"  Suscripciones importadas: {res['suscripciones']}\n"
+                    f"  Membresias en BD:         {n_mem}\n"
                 )
             else:
                 lbl_estado.configure(text="Formato no reconocido.")

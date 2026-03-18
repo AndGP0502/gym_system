@@ -2,9 +2,7 @@ import sqlite3
 from datetime import datetime, timedelta
 import os
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH  = os.path.join(BASE_DIR, "..", "gym.db")
-
+from database.db_path import DB_PATH
 
 def _con():
     """Devuelve siempre una conexión a la BD correcta."""

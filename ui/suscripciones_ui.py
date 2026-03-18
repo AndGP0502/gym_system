@@ -19,9 +19,23 @@ from modulos.suscripciones import (
     ingresos_por_mes
 )
 
-BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-DB_PATH     = os.path.join(BASE_DIR, "..", "gym.db")
-CONFIG_PATH = os.path.join(BASE_DIR, "..", "config.json")
+import sys as _sys
+
+def _get_db_path():
+    if getattr(_sys, 'frozen', False):
+        return os.path.join(os.path.dirname(_sys.executable), "gym.db")
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidate = os.path.join(here, "..", "gym.db")
+    return os.path.normpath(candidate)
+
+def _get_config_path():
+    if getattr(_sys, 'frozen', False):
+        return os.path.join(os.path.dirname(_sys.executable), "config.json")
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.normpath(os.path.join(here, "..", "config.json"))
+
+DB_PATH     = _get_db_path()
+CONFIG_PATH = _get_config_path()
 
 
 # ── Helpers de configuración ─────────────────────────────────────────────────
@@ -357,6 +371,85 @@ def abrir_ventana_suscripciones(parent):
             command=guardar
         ).pack(pady=15)
 
+    def abrir_popup_editar_fechas():
+        seleccion = tabla.selection()
+        if not seleccion:
+            messagebox.showwarning("Sin seleccion",
+                "Selecciona una suscripcion de la tabla primero.", parent=ventana)
+            traer_al_frente()
+            return
+        fila   = tabla.item(seleccion[0])["values"]
+        id_sus = fila[0]
+        nombre = fila[1]
+        inicio_actual = fila[3]
+        vence_actual  = fila[4]
+        if not id_sus:
+            messagebox.showwarning("Sin ID", "Esta fila no tiene ID valido.", parent=ventana)
+            traer_al_frente()
+            return
+
+        popup = ctk.CTkToplevel(ventana)
+        popup.title(f"Editar fechas")
+        popup.geometry("460x260")
+        popup.resizable(False, False)
+        popup.attributes("-topmost", True)
+        popup.after(300, lambda: popup.attributes("-topmost", False))
+        popup.lift()
+        popup.focus_force()
+
+        ctk.CTkLabel(popup, text=f"Editar fechas — Suscripcion #{id_sus}",
+                     font=("Segoe UI", 16, "bold")).pack(pady=(20, 4))
+        ctk.CTkLabel(popup, text=nombre,
+                     font=("Segoe UI", 13), text_color="gray70").pack(pady=(0, 14))
+
+        frame_f = ctk.CTkFrame(popup, corner_radius=12)
+        frame_f.pack(fill="x", padx=20, pady=10)
+
+        ctk.CTkLabel(frame_f, text="Fecha inicio (YYYY-MM-DD):",
+                     font=("Segoe UI", 12)).grid(row=0, column=0, padx=15, pady=10, sticky="w")
+        entry_inicio = ctk.CTkEntry(frame_f, width=180)
+        entry_inicio.grid(row=0, column=1, padx=15, pady=10)
+        entry_inicio.insert(0, inicio_actual)
+
+        ctk.CTkLabel(frame_f, text="Fecha vence (YYYY-MM-DD):",
+                     font=("Segoe UI", 12)).grid(row=1, column=0, padx=15, pady=10, sticky="w")
+        entry_vence = ctk.CTkEntry(frame_f, width=180)
+        entry_vence.grid(row=1, column=1, padx=15, pady=10)
+        entry_vence.insert(0, vence_actual)
+
+        lbl_err = ctk.CTkLabel(popup, text="", text_color="#FF4444", font=("Segoe UI", 11))
+        lbl_err.pack()
+
+        def guardar_fechas():
+            fi = validar_fecha(entry_inicio.get().strip())
+            fv = validar_fecha(entry_vence.get().strip())
+            if fi is False or fv is False:
+                lbl_err.configure(
+                    text="Formato invalido. Usa YYYY-MM-DD, DD/MM/YYYY o DD-MM-YYYY.")
+                return
+            if not fi or not fv:
+                lbl_err.configure(text="Ambas fechas son obligatorias.")
+                return
+            con = sqlite3.connect(DB_PATH)
+            con.execute(
+                "UPDATE suscripciones SET fecha_inicio=?, fecha_vencimiento=? WHERE id=?",
+                (fi, fv, int(id_sus))
+            )
+            con.commit()
+            con.close()
+            popup.destroy()
+            recargar_tabla()
+            cargar_grafico_ingresos()
+            traer_al_frente()
+            messagebox.showinfo("Guardado", "Fechas actualizadas correctamente.", parent=ventana)
+
+        ctk.CTkButton(
+            popup, text="Guardar fechas", height=40,
+            font=("Segoe UI", 13, "bold"),
+            fg_color="#0d6efd", hover_color="#0b5ed7",
+            command=guardar_fechas
+        ).pack(pady=12)
+
     botones_vista = [
         ("Estado del gimnasio", estado_gimnasio),
         ("Clientes vencidos",   ver_vencidos),
@@ -364,12 +457,14 @@ def abrir_ventana_suscripciones(parent):
         ("Ver todas",           recargar_tabla),
     ]
 
+    # Fila 1: botones de vista
     for i, (txt, cmd) in enumerate(botones_vista):
         ctk.CTkButton(
             frame_botones, text=txt,
             width=165, height=40, command=cmd
-        ).grid(row=0, column=i, padx=6, pady=10)
+        ).grid(row=0, column=i, padx=6, pady=(10, 4))
 
+    # Fila 2: acciones
     ctk.CTkButton(
         frame_botones,
         text="+ Agregar suscripcion",
@@ -377,7 +472,7 @@ def abrir_ventana_suscripciones(parent):
         fg_color="#1a7a1a",
         hover_color="#145214",
         command=abrir_popup_agregar
-    ).grid(row=0, column=len(botones_vista), padx=6, pady=10)
+    ).grid(row=1, column=0, padx=6, pady=(4, 10))
 
     ctk.CTkButton(
         frame_botones,
@@ -386,7 +481,16 @@ def abrir_ventana_suscripciones(parent):
         fg_color="#C0392B",
         hover_color="#922B21",
         command=eliminar_seleccionada
-    ).grid(row=0, column=len(botones_vista) + 1, padx=6, pady=10)
+    ).grid(row=1, column=1, padx=6, pady=(4, 10))
+
+    ctk.CTkButton(
+        frame_botones,
+        text="Editar fechas",
+        width=185, height=40,
+        fg_color="#0d6efd",
+        hover_color="#0b5ed7",
+        command=abrir_popup_editar_fechas
+    ).grid(row=1, column=2, padx=6, pady=(4, 10))
 
     # ---------- FORMULARIO FIJO ----------
     frame_asignar = ctk.CTkFrame(scroll, corner_radius=18)
