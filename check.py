@@ -1,13 +1,7 @@
 import sqlite3
 con = sqlite3.connect('gym.db')
-rows = con.execute("""
-    SELECT c.id, c.nombre 
-    FROM clientes c 
-    LEFT JOIN suscripciones s ON c.id = s.cliente_id 
-    WHERE s.id IS NULL 
-    ORDER BY c.id
-""").fetchall()
-print(f"Clientes sin suscripcion: {len(rows)}")
-for r in rows:
-    print(r)
+rows = con.execute("SELECT id, precio_total, pagado, pendiente FROM suscripciones ORDER BY id DESC LIMIT 5").fetchall()
+for r in rows: print(r)
+pagos = con.execute("SELECT * FROM pagos ORDER BY id DESC LIMIT 5").fetchall()
+for p in pagos: print(p)
 con.close()

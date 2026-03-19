@@ -375,16 +375,17 @@ def contar_clientes_activos_filtro(mes=None, anio=None):
 
 
 # -------- RENOVAR SUSCRIPCION DE UN CLIENTE (+30 dias) --------
-def renovar_suscripcion_cliente(cliente_id: int, dias: int = 30) -> str:
+def renovar_suscripcion_cliente(cliente_id: int, dias: int = 30, monto: float = 0.0) -> str:
     """
     Extiende la fecha_vencimiento de la suscripcion mas reciente del cliente.
+    Si monto > 0, registra el pago en la tabla pagos y actualiza pagado/pendiente.
     Devuelve: 'ok' | 'sin_suscripcion' | 'fecha_invalida'
     """
     con = _con()
     cur = con.cursor()
 
     cur.execute("""
-        SELECT id, fecha_vencimiento
+        SELECT id, fecha_vencimiento, precio_total, pagado
         FROM suscripciones
         WHERE cliente_id = ?
         ORDER BY fecha_vencimiento DESC
@@ -396,7 +397,9 @@ def renovar_suscripcion_cliente(cliente_id: int, dias: int = 30) -> str:
         con.close()
         return "sin_suscripcion"
 
-    sus_id, fecha_venc_str = fila
+    sus_id, fecha_venc_str, precio_total, pagado_actual = fila
+    precio_total  = float(precio_total)
+    pagado_actual = float(pagado_actual)
 
     fecha_venc = None
     for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
@@ -411,9 +414,25 @@ def renovar_suscripcion_cliente(cliente_id: int, dias: int = 30) -> str:
         return "fecha_invalida"
 
     nueva_fecha = (fecha_venc + timedelta(days=dias)).strftime("%Y-%m-%d")
-
     cur.execute("UPDATE suscripciones SET fecha_vencimiento = ? WHERE id = ?",
                 (nueva_fecha, sus_id))
+
+    # Registrar pago si monto > 0
+    # En una renovacion, el precio_total se ACUMULA (nuevo periodo)
+    if monto > 0:
+        nuevo_precio    = precio_total + monto   # acumula el nuevo periodo
+        nuevo_pagado    = pagado_actual + monto   # acumula lo pagado
+        nuevo_pendiente = max(0.0, nuevo_precio - nuevo_pagado)
+        cur.execute(
+            "UPDATE suscripciones SET pagado=?, pendiente=?, precio_total=? WHERE id=?",
+            (nuevo_pagado, nuevo_pendiente, nuevo_precio, sus_id)
+        )
+        fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+        cur.execute(
+            "INSERT INTO pagos (suscripcion_id, monto, fecha_pago) VALUES (?,?,?)",
+            (sus_id, monto, fecha_hoy)
+        )
+
     con.commit()
     con.close()
     return "ok"
