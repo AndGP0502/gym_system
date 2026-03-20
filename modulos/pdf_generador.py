@@ -11,6 +11,10 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from tkinter import filedialog, messagebox
+from modulos.rutas import get_db_path, get_config_path, get_assets_dir
+import sys, os, json, tkinter as tk
+from datetime import datetime
+DB_PATH = get_db_path()
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 
@@ -21,6 +25,10 @@ else:
 
 CONFIG_PATH = os.path.join(_RAIZ, "Config.JSON")
 
+# ... resto de imports de reportlab igual
+
+CONFIG_PATH = get_config_path()
+
 def _leer_config():
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -28,13 +36,7 @@ def _leer_config():
     return {}
 
 def _ruta_assets_lectura(nombre_archivo):
-    if getattr(sys, 'frozen', False):
-        base_appdata = os.path.join(os.environ.get("APPDATA", ""), "GymSystem", "assets")
-        if os.path.exists(os.path.join(base_appdata, nombre_archivo)):
-            return os.path.join(base_appdata, nombre_archivo)
-        return os.path.join(sys._MEIPASS, "assets", nombre_archivo)
-    base = os.path.join(_RAIZ, "assets")
-    return os.path.join(base, nombre_archivo)
+    return os.path.join(get_assets_dir(), nombre_archivo)
 
 # ── Estilos ───────────────────────────────────────────────────────────────────
 
@@ -446,8 +448,6 @@ def generar_pdf_reporte_mensual(parent, mes=None, anio=None):
     mes_str  = f"{mes:02d}"
     anio_str = str(anio)
 
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DB_PATH  = os.path.join(BASE_DIR, "..", "gym.db")
 
     con = sqlite3.connect(DB_PATH)
     cur = con.cursor()

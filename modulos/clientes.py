@@ -2,15 +2,8 @@ import sqlite3
 import os
 import sys
 
-
-def _get_db_path():
-    if getattr(sys, 'frozen', False):
-        return os.path.join(os.path.dirname(sys.executable), "gym.db")
-    here = os.path.dirname(os.path.abspath(__file__))
-    return os.path.normpath(os.path.join(here, "..", "gym.db"))
-
-
-DB_PATH = _get_db_path()
+from modulos.rutas import get_db_path
+DB_PATH = get_db_path()
 
 
 def _con():
@@ -29,7 +22,6 @@ def asegurar_columna_cedula():
 asegurar_columna_cedula()
 
 
-# -------- AGREGAR CLIENTE CON ID REUTILIZABLE --------
 def agregar_cliente(nombre, cedula, telefono, fecha_registro):
     if not nombre.strip():
         return "El nombre del cliente es obligatorio"
@@ -46,7 +38,6 @@ def agregar_cliente(nombre, cedula, telefono, fecha_registro):
         con.close()
         return "Ya existe un cliente registrado con esa cédula"
 
-    # Buscar el ID más bajo disponible (reutiliza IDs de clientes eliminados)
     cur.execute("SELECT id FROM clientes ORDER BY id")
     ids_existentes = set(r[0] for r in cur.fetchall())
     nuevo_id = 1
@@ -62,7 +53,6 @@ def agregar_cliente(nombre, cedula, telefono, fecha_registro):
     return "Cliente agregado correctamente"
 
 
-# -------- VER CLIENTES --------
 def ver_clientes():
     con = _con()
     cur = con.cursor()
@@ -72,7 +62,6 @@ def ver_clientes():
     return clientes
 
 
-# -------- ELIMINAR CLIENTE --------
 def eliminar_cliente(cliente_id):
     con = _con()
     con.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))
@@ -80,7 +69,6 @@ def eliminar_cliente(cliente_id):
     con.close()
 
 
-# -------- EDITAR CLIENTE --------
 def editar_cliente(cliente_id, nombre, cedula, telefono, fecha):
     con = _con()
     cur = con.cursor()
@@ -100,7 +88,6 @@ def editar_cliente(cliente_id, nombre, cedula, telefono, fecha):
     return "Cliente actualizado correctamente"
 
 
-# -------- CONTAR CLIENTES --------
 def contar_clientes():
     con = _con()
     cur = con.cursor()
@@ -110,7 +97,6 @@ def contar_clientes():
     return total
 
 
-# -------- CONTAR CLIENTES POR MES/AÑO --------
 def contar_clientes_filtro(mes=None, anio=None):
     con = _con()
     cur = con.cursor()

@@ -2,12 +2,14 @@ import sqlite3
 from datetime import datetime, timedelta
 import os
 
-from database.db_path import DB_PATH
+from modulos.rutas import get_db_path
+DB_PATH = get_db_path()
 
 
 def _con():
-    """Devuelve siempre una conexión a la BD correcta."""
     return sqlite3.connect(DB_PATH)
+
+# ... (resto del código idéntico, solo cambia el import de DB_PATH)
 
 
 def _nuevo_id_suscripcion(cur):

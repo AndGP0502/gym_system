@@ -15,24 +15,22 @@ else:
 CONFIG_PATH = os.path.join(_RAIZ, "Config.JSON")
 
 
+from modulos.rutas import get_config_path, get_assets_dir
+import os, sys, json
+import ttkbootstrap as ttk
+from tkinter import messagebox, filedialog
+from PIL import Image, ImageTk
+
+CONFIG_PATH = get_config_path()
+
 def ruta_assets(nombre_archivo):
-    if getattr(sys, 'frozen', False):
-        base = os.path.join(os.environ.get("APPDATA", ""), "GymSystem", "assets")
-    else:
-        base = os.path.join(_RAIZ, "assets")
+    base = get_assets_dir()
     os.makedirs(base, exist_ok=True)
     return os.path.join(base, nombre_archivo)
 
-
 def ruta_assets_lectura(nombre_archivo):
-    personalizada = ruta_assets(nombre_archivo)
-    if os.path.exists(personalizada):
-        return personalizada
-    if getattr(sys, 'frozen', False):
-        base = os.path.join(sys._MEIPASS, "assets")
-    else:
-        base = os.path.join(_RAIZ, "assets")
-    return os.path.join(base, nombre_archivo)
+    return os.path.join(get_assets_dir(), nombre_archivo)
+
 
 
 # ── Leer / guardar Config.JSON ────────────────────────────────────────────────

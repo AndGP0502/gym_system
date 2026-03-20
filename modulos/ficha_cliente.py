@@ -3,9 +3,9 @@ import os
 import shutil
 from datetime import datetime
 
-BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-DB_PATH   = os.path.join(BASE_DIR, "..", "gym.db")
-FOTOS_DIR = os.path.join(BASE_DIR, "..", "assets", "fotos_clientes")
+from modulos.rutas import get_db_path, get_assets_dir
+DB_PATH   = get_db_path()
+FOTOS_DIR = os.path.join(get_assets_dir(), "fotos_clientes")
 
 
 def _con():
@@ -27,7 +27,6 @@ def init_tablas_ficha():
             FOREIGN KEY(cliente_id) REFERENCES clientes(id)
         )
     """)
-    # Columnas extra — tolerante si ya existen
     for col, tipo in [
         ("peso_kg",        "REAL"),
         ("altura_m",       "REAL"),
@@ -64,8 +63,6 @@ def init_tablas_ficha():
 init_tablas_ficha()
 
 
-# ── Foto ──────────────────────────────────────────────────────────────────────
-
 def guardar_foto(cliente_id: int, ruta_origen: str) -> str:
     os.makedirs(FOTOS_DIR, exist_ok=True)
     ext          = os.path.splitext(ruta_origen)[1].lower()
@@ -85,8 +82,6 @@ def obtener_foto(cliente_id: int) -> str | None:
         return fila[0]
     return None
 
-
-# ── Ficha general ─────────────────────────────────────────────────────────────
 
 def obtener_ficha(cliente_id: int) -> dict | None:
     con = _con()
@@ -118,31 +113,21 @@ def guardar_ficha(cliente_id: int, objetivo: str, estado_fisico: str,
              lesion, cardiovascular, asfixia, asmatico, medicacion, mareos)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(cliente_id) DO UPDATE SET
-            objetivo        = excluded.objetivo,
-            estado_fisico   = excluded.estado_fisico,
-            condiciones     = excluded.condiciones,
-            notas           = excluded.notas,
-            foto_ruta       = excluded.foto_ruta,
-            peso_kg         = excluded.peso_kg,
-            altura_m        = excluded.altura_m,
-            cir_abdominal   = excluded.cir_abdominal,
-            status_fisico   = excluded.status_fisico,
-            objetivo_2      = excluded.objetivo_2,
-            peso_ideal      = excluded.peso_ideal,
-            lesion          = excluded.lesion,
-            cardiovascular  = excluded.cardiovascular,
-            asfixia         = excluded.asfixia,
-            asmatico        = excluded.asmatico,
-            medicacion      = excluded.medicacion,
-            mareos          = excluded.mareos
+            objetivo=excluded.objetivo, estado_fisico=excluded.estado_fisico,
+            condiciones=excluded.condiciones, notas=excluded.notas,
+            foto_ruta=excluded.foto_ruta, peso_kg=excluded.peso_kg,
+            altura_m=excluded.altura_m, cir_abdominal=excluded.cir_abdominal,
+            status_fisico=excluded.status_fisico, objetivo_2=excluded.objetivo_2,
+            peso_ideal=excluded.peso_ideal, lesion=excluded.lesion,
+            cardiovascular=excluded.cardiovascular, asfixia=excluded.asfixia,
+            asmatico=excluded.asmatico, medicacion=excluded.medicacion,
+            mareos=excluded.mareos
     """, (cliente_id, objetivo, estado_fisico, condiciones, notas, ruta_final,
           peso_kg, altura_m, cir_abdominal, status_fisico, objetivo_2, peso_ideal,
           lesion, cardiovascular, asfixia, asmatico, medicacion, mareos))
     con.commit()
     con.close()
 
-
-# ── Historial de medidas ──────────────────────────────────────────────────────
 
 def agregar_medida(cliente_id: int, peso_kg: float, altura_cm: float, notas: str = "") -> float:
     imc   = round(peso_kg / ((altura_cm / 100) ** 2), 2) if altura_cm > 0 else 0

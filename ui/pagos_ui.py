@@ -1,10 +1,9 @@
 import sqlite3
 import os, sys
 
-def _get_db_path():
-    if getattr(sys,'frozen',False): return os.path.join(os.path.dirname(sys.executable),'gym.db')
-    return os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..',  'gym.db'))
-DB_PATH = _get_db_path()
+# FIX: reemplazar función _get_db_path local por rutas centralizadas
+from modulos.rutas import get_db_path
+DB_PATH = get_db_path()
 
 import tkinter as tk
 import ttkbootstrap as tb
@@ -245,16 +244,12 @@ def abrir_ventana_pagos(parent):
     ttk.Label(frame_cambiar, text="ID Suscripcion:").grid(row=0, column=0, padx=8, pady=6, sticky=W)
     entry_sus_cambiar = ttk.Entry(frame_cambiar, width=10)
     entry_sus_cambiar.grid(row=0, column=1, padx=8, pady=6, sticky=W)
-
     ttk.Label(frame_cambiar, text="Nuevo plan:").grid(row=0, column=2, padx=8, pady=6, sticky=W)
     combo_nuevo_plan = ttk.Combobox(frame_cambiar, width=32, state="readonly")
     combo_nuevo_plan.grid(row=0, column=3, padx=8, pady=6, sticky=W)
-
     ttk.Label(frame_cambiar, text="Monto pagado:").grid(row=0, column=4, padx=8, pady=6, sticky=W)
     entry_pago_nuevo = ttk.Entry(frame_cambiar, width=10)
     entry_pago_nuevo.grid(row=0, column=5, padx=8, pady=6, sticky=W)
-
-    # Botón Cambiar Plan en fila 0
     ttk.Button(frame_cambiar, text="Cambiar Plan", bootstyle="warning",
                width=14, command=lambda: cambiar_plan()).grid(row=0, column=6, padx=10, pady=6)
 
@@ -278,82 +273,55 @@ def abrir_ventana_pagos(parent):
         sel_plan   = combo_nuevo_plan.current()
         monto_str  = entry_pago_nuevo.get().strip()
         if not sus_id_str or sel_plan < 0 or not monto_str:
-            messagebox.showerror("Error", "Completa: ID suscripcion, nuevo plan y monto.", parent=ventana)
-            return
+            messagebox.showerror("Error", "Completa: ID suscripcion, nuevo plan y monto.", parent=ventana); return
         try:
-            sus_id = int(sus_id_str)
-            monto  = float(monto_str)
+            sus_id = int(sus_id_str); monto = float(monto_str)
         except ValueError:
             messagebox.showerror("Error", "ID y monto deben ser numeros.", parent=ventana); return
 
-        planes      = combo_nuevo_plan._planes
-        nuevo_plan  = planes[sel_plan]
-        id_mem_new  = nuevo_plan[0]
-        precio_plan = float(nuevo_plan[2])
-        duracion    = int(nuevo_plan[3])
+        planes = combo_nuevo_plan._planes; nuevo_plan = planes[sel_plan]
+        id_mem_new = nuevo_plan[0]; precio_plan = float(nuevo_plan[2]); duracion = int(nuevo_plan[3])
 
         if not messagebox.askyesno("Confirmar",
             f"Reemplazar suscripcion #{sus_id} con '{nuevo_plan[1]}'\n"
             f"Precio: ${precio_plan:.2f} | Pagado: ${monto:.2f}\n\nLa anterior sera eliminada.",
-            parent=ventana):
-            return
+            parent=ventana): return
 
         from datetime import datetime as _dt, timedelta as _td
         hoy = _dt.now()
 
         fi_raw = entry_fecha_inicio_nuevo.get().strip()
-        if fi_raw:
-            try:
-                fecha_inicio = _dt.strptime(fi_raw, "%Y-%m-%d").strftime("%Y-%m-%d")
-            except ValueError:
-                messagebox.showerror("Error", "Formato fecha inicio invalido. Usa YYYY-MM-DD.", parent=ventana); return
-        else:
-            fecha_inicio = hoy.strftime("%Y-%m-%d")
+        fecha_inicio = _dt.strptime(fi_raw, "%Y-%m-%d").strftime("%Y-%m-%d") if fi_raw else hoy.strftime("%Y-%m-%d")
 
         fv_raw = entry_fecha_vence_nuevo.get().strip()
         if fv_raw:
-            try:
-                fecha_vence = _dt.strptime(fv_raw, "%Y-%m-%d").strftime("%Y-%m-%d")
-            except ValueError:
-                messagebox.showerror("Error", "Formato fecha vence invalido. Usa YYYY-MM-DD.", parent=ventana); return
+            fecha_vence = _dt.strptime(fv_raw, "%Y-%m-%d").strftime("%Y-%m-%d")
         else:
-            fecha_dt    = _dt.strptime(fecha_inicio, "%Y-%m-%d")
-            fecha_vence = (fecha_dt + _td(days=duracion)).strftime("%Y-%m-%d")
+            fecha_vence = (_dt.strptime(fecha_inicio, "%Y-%m-%d") + _td(days=duracion)).strftime("%Y-%m-%d")
 
         pendiente = max(0.0, precio_plan - monto)
-
         con = sqlite3.connect(DB_PATH)
         fila = con.execute("SELECT cliente_id FROM suscripciones WHERE id=?", (sus_id,)).fetchone()
         if not fila:
             con.close()
             messagebox.showerror("Error", "Suscripcion no encontrada.", parent=ventana); return
         cliente_id = fila[0]
-
         con.execute("DELETE FROM pagos WHERE suscripcion_id=?", (sus_id,))
         con.execute("DELETE FROM suscripciones WHERE id=?", (sus_id,))
-
         ids_sus = set(r[0] for r in con.execute("SELECT id FROM suscripciones ORDER BY id").fetchall())
         nuevo_sus_id = 1
-        while nuevo_sus_id in ids_sus:
-            nuevo_sus_id += 1
-
+        while nuevo_sus_id in ids_sus: nuevo_sus_id += 1
         con.execute(
             "INSERT INTO suscripciones (id, cliente_id, membresia_id, fecha_inicio, fecha_vencimiento, precio_total, pagado, pendiente) VALUES (?,?,?,?,?,?,?,?)",
-            (nuevo_sus_id, cliente_id, id_mem_new, fecha_inicio, fecha_vence, precio_plan, monto, pendiente)
-        )
+            (nuevo_sus_id, cliente_id, id_mem_new, fecha_inicio, fecha_vence, precio_plan, monto, pendiente))
         if monto > 0:
             con.execute("INSERT INTO pagos (suscripcion_id, monto, fecha_pago) VALUES (?,?,?)",
                         (nuevo_sus_id, monto, fecha_inicio))
-        con.commit()
-        con.close()
-
-        entry_sus_cambiar.delete(0, END)
-        entry_pago_nuevo.delete(0, END)
-        entry_fecha_inicio_nuevo.delete(0, END)
-        entry_fecha_vence_nuevo.delete(0, END)
+        con.commit(); con.close()
+        entry_sus_cambiar.delete(0, END); entry_pago_nuevo.delete(0, END)
+        entry_fecha_inicio_nuevo.delete(0, END); entry_fecha_vence_nuevo.delete(0, END)
         combo_nuevo_plan.set("")
-        cargar_suscripciones()
-        cargar_suscripciones_lista()
+        cargar_suscripciones(); cargar_suscripciones_lista()
         messagebox.showinfo("Listo", f"Plan actualizado.\nNuevo vencimiento: {fecha_vence}", parent=ventana)
 
     def _sync_sus_cambiar(sus_id):
@@ -361,15 +329,14 @@ def abrir_ventana_pagos(parent):
         entry_sus_cambiar.insert(0, str(sus_id))
 
     def actualizar_cards(datos=None):
-        if datos is None:
-            datos = listar_suscripciones_para_pago()
+        if datos is None: datos = listar_suscripciones_para_pago()
         total = len(datos); pagadas = 0; pendientes = 0; recaudado = 0.0
         for sus in datos:
             total_pago = float(sus[4]); pagado = float(sus[5])
             pendiente  = max(0.0, float(sus[6])); recaudado += pagado
-            if total_pago == 0 and pagado == 0:      pendientes += 1
-            elif pagado >= total_pago and total_pago > 0: pagadas += 1
-            else:                                    pendientes += 1
+            if total_pago == 0 and pagado == 0:           pendientes += 1
+            elif pagado >= total_pago and total_pago > 0: pagadas    += 1
+            else:                                         pendientes += 1
         lbl_total_valor.config(text=str(total))
         lbl_total_pagadas.config(text=str(pagadas))
         lbl_total_pendientes.config(text=str(pendientes))
@@ -426,7 +393,7 @@ def abrir_ventana_pagos(parent):
                     f"{total:.2f}", f"{pagado:.2f}", f"{pendiente:.2f}",
                     inicio, vence, f"${pagado:.2f}")
             if total == 0 and pagado == 0:         tag = "deuda";   pendientes_c += 1
-            elif pagado >= total and total > 0:    tag = "pagado";  pagadas += 1
+            elif pagado >= total and total > 0:    tag = "pagado";  pagadas      += 1
             elif pagado > 0:                       tag = "parcial"; pendientes_c += 1
             else:                                  tag = "deuda";   pendientes_c += 1
             tabla.insert("", END, values=fila, tags=(tag,))
@@ -487,9 +454,9 @@ def abrir_ventana_pagos(parent):
         th.heading("ID Pago", text="ID Pago")
         th.heading("Monto",   text="Monto")
         th.heading("Fecha",   text="Fecha")
-        th.column("ID Pago", width=100, anchor=CENTER)
-        th.column("Monto",   width=120, anchor=CENTER)
-        th.column("Fecha",   width=180, anchor=CENTER)
+        th.column("ID Pago", width=100, anchor=CENTER, minwidth=60)
+        th.column("Monto",   width=120, anchor=CENTER, minwidth=60)
+        th.column("Fecha",   width=180, anchor=CENTER, minwidth=80)
         th.pack(fill=BOTH, expand=True)
         for pago_id, monto, fecha in historial:
             th.insert("", END, values=(pago_id, monto, fecha))
@@ -560,20 +527,21 @@ def abrir_ventana_pagos(parent):
     frame_botones = ttk.Frame(contenedor)
     frame_botones.pack(fill=X, pady=12)
 
-    ttk.Button(frame_botones, text="Buscar",           bootstyle="info",      width=12, command=buscar_cliente).pack(side="left", padx=4)
-    ttk.Button(frame_botones, text="Crear Suscripción",bootstyle="primary",   width=16, command=crear_suscripcion_rapida).pack(side="left", padx=4)
-    ttk.Button(frame_botones, text="Registrar Pago",   bootstyle="success",   width=14, command=pagar).pack(side="left", padx=4)
-    ttk.Button(frame_botones, text="Ver Historial",    bootstyle="warning",   width=14, command=ver_historial).pack(side="left", padx=4)
-    ttk.Button(frame_botones, text="Eliminar Pago",    bootstyle="danger",    width=14, command=eliminar_pago_seleccionado).pack(side="left", padx=4)
-    ttk.Button(frame_botones, text="Poner Pago en $0", bootstyle="warning",   width=16, command=resetear_pago).pack(side="left", padx=4)
-    ttk.Button(frame_botones, text="📊 Reporte PDF",   bootstyle="info",      width=16,
+    ttk.Button(frame_botones, text="Buscar",            bootstyle="info",      width=12, command=buscar_cliente).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Crear Suscripción", bootstyle="primary",   width=16, command=crear_suscripcion_rapida).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Registrar Pago",    bootstyle="success",   width=14, command=pagar).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Ver Historial",     bootstyle="warning",   width=14, command=ver_historial).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Eliminar Pago",     bootstyle="danger",    width=14, command=eliminar_pago_seleccionado).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Poner Pago en $0",  bootstyle="warning",   width=16, command=resetear_pago).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="📊 Reporte PDF",    bootstyle="info",      width=16,
                command=lambda: generar_pdf_reporte_mensual(
                    ventana,
                    meses.index(combo_mes.get()) if combo_mes.get() != "Todos" else None,
                    int(combo_anio.get()) if combo_anio.get() != "Todos" else None
                )).pack(side="left", padx=4)
-    ttk.Button(frame_botones, text="Actualizar",       bootstyle="secondary", width=12,
-               command=lambda: [cargar_clientes(), on_mes_change(), cargar_suscripciones_lista()]).pack(side="right", padx=4)
+    ttk.Button(frame_botones, text="Actualizar",        bootstyle="secondary", width=12,
+               command=lambda: [cargar_clientes(), on_mes_change(),
+                                cargar_suscripciones_lista()]).pack(side="right", padx=4)
 
     # CARGA INICIAL
     cargar_clientes()

@@ -18,6 +18,7 @@ from tkinter import messagebox
 from PIL import Image, ImageTk
 import os
 import sys
+from modulos.rutas import get_assets_dir, get_app_dir
 
 # Raíz del proyecto: funciona tanto corriendo main.py como como .exe
 if getattr(sys, 'frozen', False):
@@ -26,25 +27,15 @@ else:
     _RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def ruta_assets(nombre_archivo):
-    """Ruta ESCRIBIBLE — AppData cuando es .exe, assets/ local en desarrollo."""
-    if getattr(sys, 'frozen', False):
-        base = os.path.join(os.environ.get("APPDATA", ""), "GymSystem", "assets")
-    else:
-        base = os.path.join(_RAIZ, "assets")
+    """Ruta ESCRIBIBLE — siempre en la carpeta de la app instalada."""
+    base = get_assets_dir()
     os.makedirs(base, exist_ok=True)
     return os.path.join(base, nombre_archivo)
 
-def ruta_assets_lectura(nombre_archivo):
-    """Ruta de LECTURA — busca primero en AppData, luego en assets/ empaquetado."""
-    personalizada = ruta_assets(nombre_archivo)
-    if os.path.exists(personalizada):
-        return personalizada
-    if getattr(sys, 'frozen', False):
-        base = os.path.join(sys._MEIPASS, "assets")
-    else:
-        base = os.path.join(_RAIZ, "assets")
-    return os.path.join(base, nombre_archivo)
 
+def ruta_assets_lectura(nombre_archivo):
+    """Ruta de LECTURA — busca en assets/ junto al .exe."""
+    return os.path.join(get_assets_dir(), nombre_archivo)
 
 def iniciar_ventana():
 

@@ -1,14 +1,14 @@
 import sqlite3
 import os
 
-from database.db_path import DB_PATH
+from modulos.rutas import get_db_path
+DB_PATH = get_db_path()
 
 
 def _con():
     return sqlite3.connect(DB_PATH)
 
 
-# FUNCION PARA CREAR UNA MEMBRESIA
 def crear_membresia(nombre_plan, precio, duracion_dias):
     if nombre_plan.strip() == "":
         print("El nombre del plan no puede estar vacío")
@@ -36,7 +36,6 @@ def crear_membresia(nombre_plan, precio, duracion_dias):
     print("Membresía creada correctamente")
 
 
-# FUNCION PARA EDITAR UNA MEMBRESIA
 def editar_membresia(id_membresia, nombre_plan, precio, duracion_dias):
     if nombre_plan.strip() == "":
         print("El nombre del plan no puede estar vacío")
@@ -59,7 +58,6 @@ def editar_membresia(id_membresia, nombre_plan, precio, duracion_dias):
     print("Membresía actualizada correctamente")
 
 
-# FUNCION PARA VER LAS MEMBRESIAS
 def ver_membresias():
     con = _con()
     cur = con.cursor()
@@ -69,7 +67,6 @@ def ver_membresias():
     return membresias
 
 
-# FUNCION PARA ELIMINAR UNA MEMBRESIA POR ID
 def eliminar_membresia(id_membresia):
     con = _con()
     con.execute("DELETE FROM membresias WHERE id = ?", (id_membresia,))
@@ -78,7 +75,6 @@ def eliminar_membresia(id_membresia):
     print("Membresía eliminada correctamente")
 
 
-# -------- CONTAR MEMBRESIAS --------
 def contar_membresias():
     con = _con()
     cur = con.cursor()

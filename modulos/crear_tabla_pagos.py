@@ -1,16 +1,8 @@
 import sqlite3
 import os
-import sys
 
-
-def _get_db_path():
-    if getattr(sys, 'frozen', False):
-        return os.path.join(os.path.dirname(sys.executable), "gym.db")
-    here = os.path.dirname(os.path.abspath(__file__))
-    return os.path.normpath(os.path.join(here, "..", "gym.db"))
-
-
-DB_PATH = _get_db_path()
+from modulos.rutas import get_db_path
+DB_PATH = get_db_path()
 
 con = sqlite3.connect(DB_PATH)
 con.execute("PRAGMA foreign_keys = ON")

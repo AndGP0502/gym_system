@@ -2,76 +2,65 @@ import sqlite3
 import os
 import sys
 
-def obtener_ruta_db():
-    if getattr(sys, 'frozen', False):
-        # Cuando corre como .exe
-        base_path = os.path.dirname(sys.executable)
-    else:
-        # Cuando corre como proyecto normal en Python
-        base_path = os.path.dirname(os.path.abspath(__file__))
-        base_path = os.path.abspath(os.path.join(base_path, ".."))
+from database.db_path import get_db_path
 
-    return os.path.join(base_path, "gym.db")
+DB_PATH = get_db_path()
 
 
-DB_PATH = obtener_ruta_db()
+def inicializar_base_datos():
+    """
+    Crea las tablas si no existen. Se llama explícitamente desde main.py,
+    no al importar el módulo — evita el error 'unable to open database file'
+    en la PC del cliente.
+    """
+    conexion = sqlite3.connect(DB_PATH)
+    conexion.execute("PRAGMA foreign_keys = ON")
+    cursor = conexion.cursor()
 
-conexion = sqlite3.connect(DB_PATH)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clientes(
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre         TEXT,
+            cedula         TEXT,
+            telefono       TEXT,
+            fecha_registro TEXT
+        )
+    """)
 
-# activar claves foráneas
-conexion.execute("PRAGMA foreign_keys = ON")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS membresias(
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre_plan   TEXT,
+            precio        REAL,
+            duracion_dias INTEGER
+        )
+    """)
 
-cursor = conexion.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS suscripciones(
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id        INTEGER,
+            membresia_id      INTEGER,
+            fecha_inicio      TEXT,
+            fecha_vencimiento TEXT,
+            precio_total      REAL,
+            pagado            REAL,
+            pendiente         REAL,
+            FOREIGN KEY(cliente_id)   REFERENCES clientes(id),
+            FOREIGN KEY(membresia_id) REFERENCES membresias(id)
+        )
+    """)
 
-# tabla clientes
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS clientes(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT,
-    cedula TEXT,
-    telefono TEXT,
-    fecha_registro TEXT
-)
-""")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pagos(
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            suscripcion_id INTEGER,
+            monto          REAL,
+            fecha_pago     TEXT,
+            FOREIGN KEY(suscripcion_id) REFERENCES suscripciones(id)
+        )
+    """)
 
-# tabla membresias
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS membresias(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre_plan TEXT,
-    precio REAL,
-    duracion_dias INTEGER
-)
-""")
-
-# tabla suscripciones
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS suscripciones(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cliente_id INTEGER,
-    membresia_id INTEGER,
-    fecha_inicio TEXT,
-    fecha_vencimiento TEXT,
-    precio_total REAL,
-    pagado REAL,
-    pendiente REAL,
-    FOREIGN KEY(cliente_id) REFERENCES clientes(id),
-    FOREIGN KEY(membresia_id) REFERENCES membresias(id)
-)
-""")
-
-# tabla pagos
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS pagos(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    suscripcion_id INTEGER,
-    monto REAL,
-    fecha_pago TEXT,
-    FOREIGN KEY(suscripcion_id) REFERENCES suscripciones(id)
-)
-""")
-
-conexion.commit()
-conexion.close()
-
-print("Base de datos lista")
+    conexion.commit()
+    conexion.close()
+    print("Base de datos lista")

@@ -4,11 +4,11 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from datetime import datetime
 from tkinter import filedialog, messagebox
+from modulos.rutas import get_db_path, get_config_path, get_backup_dir
 
-# ── Rutas ────────────────────────────────────────────────────────────────────
-BASE_DIR       = os.path.dirname(os.path.abspath(__file__))
-DB_PATH        = os.path.join(BASE_DIR, "..", "gym.db")
-CARPETA_BACKUP = os.path.join(BASE_DIR, "..", "backups")
+DB_PATH     = get_db_path()
+CONFIG_PATH = get_config_path()        # solo donde se use
+CARPETA_BACKUP = get_backup_dir()      # solo en backup_db.py
 
 # ── Estructura exacta de la BD ───────────────────────────────────────────────
 TABLAS = {

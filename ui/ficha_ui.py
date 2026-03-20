@@ -8,8 +8,9 @@ from modulos.ficha_cliente import (
     agregar_medida, obtener_historial, eliminar_medida
 )
 
-FOTO_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "..", "assets", "default_avatar.png")
+
+from modulos.rutas import get_assets_dir
+FOTO_DEFAULT = os.path.join(get_assets_dir(), "default_avatar.png")
 
 def _crear_avatar_default():
     ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets")

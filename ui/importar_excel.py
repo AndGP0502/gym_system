@@ -5,20 +5,9 @@ import openpyxl
 import sqlite3
 import os
 from datetime import datetime
+from modulos.rutas import get_db_path
 
-import sys as _sys
-
-def _get_db_path():
-    if getattr(_sys, 'frozen', False):
-        return os.path.join(os.path.dirname(_sys.executable), "gym.db")
-    here = os.path.dirname(os.path.abspath(__file__))
-    # Try current dir first, then parent
-    candidate = os.path.join(here, "gym.db")
-    if os.path.exists(candidate):
-        return candidate
-    return os.path.normpath(os.path.join(here, "..", "gym.db"))
-
-DB_PATH = _get_db_path()
+DB_PATH = get_db_path()
 
 # ── Planes FIVGYM ─────────────────────────────────────────────────────────────
 PLANES_FIVGYM = {

@@ -1,11 +1,17 @@
 import sqlite3
-from datetime import datetime
 import os
+from datetime import datetime
 
-from database.db_path import DB_PATH
+from modulos.rutas import get_db_path
+DB_PATH = get_db_path()
+
+
+def _con():
+    return sqlite3.connect(DB_PATH)
+
 
 def registrar_pago(suscripcion_id, monto):
-    con = sqlite3.connect(DB_PATH)
+    con = _con()
     cursor = con.cursor()
 
     if monto <= 0:
@@ -27,9 +33,6 @@ def registrar_pago(suscripcion_id, monto):
 
     precio_total, pagado_actual = float(datos[0]), float(datos[1])
 
-    # FIX: si precio_total = 0 significa que no se registró el total al importar
-    # En ese caso actualizamos precio_total con el monto pagado acumulado
-    # y nunca bloqueamos el pago por "ya pagado"
     if precio_total > 0 and pagado_actual >= precio_total:
         print("La suscripcion ya esta pagada completamente")
         con.close()
@@ -37,7 +40,6 @@ def registrar_pago(suscripcion_id, monto):
 
     nuevo_pagado = pagado_actual + monto
 
-    # Si no había precio_total definido, el nuevo total es lo que se va pagando
     if precio_total == 0:
         nuevo_precio_total = nuevo_pagado
         nuevo_pendiente    = 0.0
@@ -64,7 +66,7 @@ def registrar_pago(suscripcion_id, monto):
 
 
 def ver_historial_pagos(suscripcion_id):
-    con = sqlite3.connect(DB_PATH)
+    con = _con()
     cursor = con.cursor()
     cursor.execute("""
         SELECT id, monto, fecha_pago
@@ -78,19 +80,13 @@ def ver_historial_pagos(suscripcion_id):
 
 
 def listar_suscripciones_para_pago():
-    con = sqlite3.connect(DB_PATH)
+    con = _con()
     cursor = con.cursor()
     cursor.execute("""
         SELECT
-            c.id,
-            c.nombre,
-            s.id,
-            m.nombre_plan,
-            s.precio_total,
-            s.pagado,
-            s.pendiente,
-            s.fecha_inicio,
-            s.fecha_vencimiento
+            c.id, c.nombre, s.id, m.nombre_plan,
+            s.precio_total, s.pagado, s.pendiente,
+            s.fecha_inicio, s.fecha_vencimiento
         FROM suscripciones s
         JOIN clientes   c ON s.cliente_id   = c.id
         JOIN membresias m ON s.membresia_id = m.id
@@ -102,7 +98,7 @@ def listar_suscripciones_para_pago():
 
 
 def eliminar_pago(pago_id):
-    con = sqlite3.connect(DB_PATH)
+    con = _con()
     cursor = con.cursor()
     cursor.execute("SELECT suscripcion_id, monto FROM pagos WHERE id = ?", (pago_id,))
     pago = cursor.fetchone()
@@ -123,18 +119,13 @@ def eliminar_pago(pago_id):
 
 
 def buscar_cliente_pagos(cliente_id):
-    con = sqlite3.connect(DB_PATH)
+    con = _con()
     cursor = con.cursor()
     cursor.execute("""
         SELECT
-            s.id,
-            c.nombre,
-            m.nombre_plan,
-            s.precio_total,
-            s.pagado,
-            s.pendiente,
-            s.fecha_inicio,
-            s.fecha_vencimiento
+            s.id, c.nombre, m.nombre_plan,
+            s.precio_total, s.pagado, s.pendiente,
+            s.fecha_inicio, s.fecha_vencimiento
         FROM suscripciones s
         JOIN clientes   c ON s.cliente_id   = c.id
         JOIN membresias m ON s.membresia_id = m.id

@@ -4,11 +4,9 @@ import subprocess
 import sqlite3
 import os
 
-# ── Ruta absoluta a la BD ────────────────────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH  = os.path.join(BASE_DIR, "..", "gym.db")
+from modulos.rutas import get_db_path
+DB_PATH = get_db_path()
 
-# ── Ruta de Chrome ───────────────────────────────────────────────────────────
 CHROME_PATH = "C:/Program Files/Google/Chrome/Application/chrome.exe"
 
 
@@ -35,7 +33,6 @@ def _abrir_whatsapp_web(telefono: str, mensaje: str):
 
 
 def dias_restantes(id_cliente: int) -> int | None:
-    """Devuelve los días restantes de la suscripción activa del cliente, o None si no tiene."""
     con = sqlite3.connect(DB_PATH)
     cur = con.execute("""
         SELECT fecha_vencimiento
@@ -52,7 +49,7 @@ def dias_restantes(id_cliente: int) -> int | None:
 
     try:
         vence = datetime.strptime(fila[0], "%Y-%m-%d")
-        delta = (vence.date() - datetime.now().date()).days  # FIX: comparar solo fechas, sin desfase de horas
+        delta = (vence.date() - datetime.now().date()).days
         return delta
     except Exception as e:
         print(f"[ERROR] Parseo de fecha fallido para cliente {id_cliente}: {e} | valor: {fila[0]}")
@@ -60,10 +57,6 @@ def dias_restantes(id_cliente: int) -> int | None:
 
 
 def enviar_recordatorio_manual(nombre: str, telefono: str, id_cliente: int):
-    """
-    Abre WhatsApp Web con un mensaje personalizado que incluye
-    los días restantes de la suscripción del cliente.
-    """
     dias = dias_restantes(id_cliente)
 
     if dias is None:
