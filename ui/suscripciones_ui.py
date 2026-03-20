@@ -26,7 +26,6 @@ from modulos.suscripciones import (
     ingresos_por_mes
 )
 
-
 def leer_clave() -> str:
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -46,7 +45,6 @@ def guardar_clave(nueva_clave: str):
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4, ensure_ascii=False)
 
-
 def validar_fecha(fecha_str: str) -> str | None:
     fecha_str = fecha_str.strip()
     if not fecha_str:
@@ -59,7 +57,6 @@ def validar_fecha(fecha_str: str) -> str | None:
         except ValueError:
             continue
     return False
-
 
 def abrir_ventana_suscripciones(parent):
 
@@ -279,6 +276,7 @@ def abrir_ventana_suscripciones(parent):
             entries_popup.append(entry)
 
         e_cliente, e_membresia, e_precio, e_pagado, e_fecha = entries_popup
+        e_fecha.insert(0, datetime.now().strftime("%Y-%m-%d"))
         lbl_error = ctk.CTkLabel(popup, text="", text_color="#FF4444", font=("Segoe UI", 12))
         lbl_error.pack(pady=(0, 5))
 
@@ -404,6 +402,7 @@ def abrir_ventana_suscripciones(parent):
         entries.append(entry)
 
     entry_cliente, entry_membresia, entry_precio, entry_pagado, entry_fecha = entries
+    entry_fecha.insert(0, datetime.now().strftime("%Y-%m-%d"))
 
     def asignar():
         val_c  = entry_cliente.get().strip(); val_m  = entry_membresia.get().strip()

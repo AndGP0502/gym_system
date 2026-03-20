@@ -7,10 +7,10 @@ from modulos.ficha_cliente import (
     obtener_ficha, guardar_ficha, guardar_foto, obtener_foto,
     agregar_medida, obtener_historial, eliminar_medida
 )
-
-
 from modulos.rutas import get_assets_dir
+
 FOTO_DEFAULT = os.path.join(get_assets_dir(), "default_avatar.png")
+
 
 def _crear_avatar_default():
     ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets")
@@ -23,6 +23,15 @@ def _crear_avatar_default():
         draw.ellipse([30, 120, 170, 230], fill="#666666")
         img.save(ruta_img)
     return ruta_img
+
+
+def _fmt(val):
+    """Formatea un número con 2 decimales y coma."""
+    try:
+        return f"{float(val):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except Exception:
+        return str(val) if val else "—"
+
 
 def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
 
@@ -51,9 +60,10 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
 
     ctk.CTkLabel(frame_header, text=f"Ficha de {nombre_cliente}",
                  font=("Segoe UI", 26, "bold")).pack(side="left", padx=20, pady=18)
+
     ctk.CTkButton(frame_header, text="✕ Cerrar", width=120, height=38,
                   fg_color="#2A2A2A", hover_color="#3A3A3A",
-                  command=popup.destroy).pack(side="right", padx=20, pady=18)
+                  command=popup.destroy).pack(side="right", padx=(20, 0), pady=18)
 
     # ── PANEL SUPERIOR: foto + datos generales ────────────────────────────────
     frame_superior = ctk.CTkFrame(scroll, corner_radius=18)
@@ -79,7 +89,7 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
         draw.ellipse([0, 0, 180, 180], fill=255)
         img_circular = Image.new("RGBA", (180, 180))
         img_circular.paste(img.convert("RGBA"), mask=mask)
-        foto_tk = ImageTk.PhotoImage(img_circular)
+        foto_tk = ctk.CTkImage(light_image=img_circular, size=(180, 180))
         foto_imagen["ref"] = foto_tk
         lbl_foto.configure(image=foto_tk, text="")
 
@@ -135,7 +145,7 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
     txt_notas = ctk.CTkTextbox(frame_campos, height=60)
     txt_notas.grid(row=1, column=1, columnspan=3, pady=(10, 0), sticky="ew")
 
-    # ── DATOS FÍSICOS (importados del Excel) ──────────────────────────────────
+    # ── DATOS FÍSICOS ─────────────────────────────────────────────────────────
     frame_fisicos = ctk.CTkFrame(scroll, corner_radius=18)
     frame_fisicos.pack(fill="x", padx=20, pady=10)
 
@@ -145,12 +155,11 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
     frame_fis_inner = ctk.CTkFrame(frame_fisicos, fg_color="transparent")
     frame_fis_inner.pack(fill="x", padx=20, pady=(0, 10))
 
-    # Fila 1: peso, altura, circunferencia, peso ideal
     campos_fis = [
-        ("Peso (kg):",        "entry_peso_fis"),
-        ("Altura (m):",       "entry_altura_fis"),
+        ("Peso (kg):",           "entry_peso_fis"),
+        ("Altura (m):",          "entry_altura_fis"),
         ("Cir. Abdominal (cm):", "entry_cir"),
-        ("Peso ideal (kg):",  "entry_peso_ideal"),
+        ("Peso ideal (kg):",     "entry_peso_ideal"),
     ]
     entries_fis = {}
     for col_idx, (label, key) in enumerate(campos_fis):
@@ -160,7 +169,6 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
         e.grid(row=0, column=col_idx * 2 + 1, padx=(0, 20), pady=6)
         entries_fis[key] = e
 
-    # Fila 2: status, objetivo secundario
     ctk.CTkLabel(frame_fis_inner, text="Status:", font=("Segoe UI", 12, "bold")).grid(
         row=1, column=0, padx=(0, 6), pady=6, sticky="w")
     status_vals = ["Principiante", "Intermedio", "Avanzado", "Atleta"]
@@ -198,12 +206,8 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
         var = ctk.StringVar(value="NO")
         checks_vars[key] = var
         ctk.CTkCheckBox(
-            frame_checks,
-            text=label,
-            variable=var,
-            onvalue="SI",
-            offvalue="NO",
-            font=("Segoe UI", 12)
+            frame_checks, text=label, variable=var,
+            onvalue="SI", offvalue="NO", font=("Segoe UI", 12)
         ).grid(row=i // 3, column=i % 3, padx=15, pady=6, sticky="w")
 
     # ── Cargar ficha existente ────────────────────────────────────────────────
@@ -213,7 +217,6 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
         if ficha.get("estado_fisico"): combo_estado.set(ficha["estado_fisico"])
         if ficha.get("notas"):         txt_notas.insert("1.0", ficha["notas"])
 
-        # Datos físicos
         def _set_entry(entry, val):
             if val is not None:
                 entry.delete(0, "end")
@@ -227,7 +230,6 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
         if ficha.get("status_fisico"): combo_status.set(ficha["status_fisico"])
         if ficha.get("objetivo_2"):    combo_obj2.set(ficha["objetivo_2"])
 
-        # Condiciones médicas
         for key, var in checks_vars.items():
             valor = ficha.get(key, "NO")
             var.set("SI" if str(valor).upper() == "SI" else "NO")
@@ -235,39 +237,38 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
     def guardar_ficha_click():
         guardar_ficha(
             cliente_id,
-            objetivo      = combo_objetivo.get().strip(),
-            estado_fisico = combo_estado.get().strip(),
-            condiciones   = ", ".join(
+            objetivo       = combo_objetivo.get().strip(),
+            estado_fisico  = combo_estado.get().strip(),
+            condiciones    = ", ".join(
                 label for key, label in condiciones_config
                 if checks_vars[key].get() == "SI"
             ) or "Ninguna",
-            notas         = txt_notas.get("1.0", "end").strip(),
-            foto_ruta     = foto_ruta["valor"],
-            peso_kg       = _safe_float(entries_fis["entry_peso_fis"].get()),
-            altura_m      = _safe_float(entries_fis["entry_altura_fis"].get()),
-            cir_abdominal = _safe_float(entries_fis["entry_cir"].get()),
-            status_fisico = combo_status.get().strip(),
-            objetivo_2    = combo_obj2.get().strip(),
-            peso_ideal    = _safe_float(entries_fis["entry_peso_ideal"].get()),
-            lesion        = checks_vars["lesion"].get(),
-            cardiovascular= checks_vars["cardiovascular"].get(),
-            asfixia       = checks_vars["asfixia"].get(),
-            asmatico      = checks_vars["asmatico"].get(),
-            medicacion    = checks_vars["medicacion"].get(),
-            mareos        = checks_vars["mareos"].get(),
+            notas          = txt_notas.get("1.0", "end").strip(),
+            foto_ruta      = foto_ruta["valor"],
+            peso_kg        = _safe_float(entries_fis["entry_peso_fis"].get()),
+            altura_m       = _safe_float(entries_fis["entry_altura_fis"].get()),
+            cir_abdominal  = _safe_float(entries_fis["entry_cir"].get()),
+            status_fisico  = combo_status.get().strip(),
+            objetivo_2     = combo_obj2.get().strip(),
+            peso_ideal     = _safe_float(entries_fis["entry_peso_ideal"].get()),
+            lesion         = checks_vars["lesion"].get(),
+            cardiovascular = checks_vars["cardiovascular"].get(),
+            asfixia        = checks_vars["asfixia"].get(),
+            asmatico       = checks_vars["asmatico"].get(),
+            medicacion     = checks_vars["medicacion"].get(),
+            mareos         = checks_vars["mareos"].get(),
         )
         messagebox.showinfo("Guardado", "Ficha guardada correctamente.", parent=popup)
         traer_al_frente()
 
     ctk.CTkButton(
-        frame_datos,
-        text="💾 Guardar ficha",
+        frame_datos, text="💾 Guardar ficha",
         height=40, font=("Segoe UI", 13, "bold"),
         fg_color="#1a7a1a", hover_color="#145214",
         command=guardar_ficha_click
     ).pack(anchor="e", padx=20, pady=(12, 18))
 
-    # ── NUEVA MEDIDA ──────────────────────────────────────────────────────────
+    # ── REGISTRAR NUEVA MEDIDA ────────────────────────────────────────────────
     frame_medida = ctk.CTkFrame(scroll, corner_radius=18)
     frame_medida.pack(fill="x", padx=20, pady=10)
 
@@ -277,22 +278,26 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
     frame_inputs = ctk.CTkFrame(frame_medida, fg_color="transparent")
     frame_inputs.pack(fill="x", padx=20, pady=(0, 5))
 
+    # Peso
     ctk.CTkLabel(frame_inputs, text="Peso (kg):", font=("Segoe UI", 13)).grid(
         row=0, column=0, padx=(0, 8), pady=8, sticky="w")
-    entry_peso = ctk.CTkEntry(frame_inputs, width=110, height=36)
+    entry_peso = ctk.CTkEntry(frame_inputs, width=110, height=36, placeholder_text="ej: 75.5")
     entry_peso.grid(row=0, column=1, padx=(0, 20), pady=8)
 
+    # Altura en cm
     ctk.CTkLabel(frame_inputs, text="Altura (cm):", font=("Segoe UI", 13)).grid(
         row=0, column=2, padx=(0, 8), pady=8, sticky="w")
-    entry_altura = ctk.CTkEntry(frame_inputs, width=110, height=36)
+    entry_altura = ctk.CTkEntry(frame_inputs, width=110, height=36, placeholder_text="ej: 175")
     entry_altura.grid(row=0, column=3, padx=(0, 20), pady=8)
 
+    # IMC calculado
     ctk.CTkLabel(frame_inputs, text="IMC:", font=("Segoe UI", 13)).grid(
         row=0, column=4, padx=(0, 8), pady=8, sticky="w")
     lbl_imc = ctk.CTkLabel(frame_inputs, text="—", font=("Segoe UI", 15, "bold"),
-                            text_color="#00D1FF", width=160)
+                            text_color="#00D1FF", width=180)
     lbl_imc.grid(row=0, column=5, padx=(0, 20), pady=8)
 
+    # Notas
     ctk.CTkLabel(frame_inputs, text="Notas:", font=("Segoe UI", 13)).grid(
         row=0, column=6, padx=(0, 8), pady=8, sticky="w")
     entry_notas_m = ctk.CTkEntry(frame_inputs, width=200, height=36)
@@ -300,14 +305,16 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
 
     def calcular_imc_preview(event=None):
         try:
-            peso   = float(entry_peso.get())
-            altura = float(entry_altura.get())
+            peso   = float(entry_peso.get().replace(",", "."))
+            altura = float(entry_altura.get().replace(",", "."))
             if altura > 0:
+                # altura en cm → convertir a metros
                 imc = round(peso / ((altura / 100) ** 2), 2)
-                if   imc < 18.5: cat, color = f"{imc} — Bajo peso",  "#FFA500"
-                elif imc < 25:   cat, color = f"{imc} — Normal",     "#00D1FF"
-                elif imc < 30:   cat, color = f"{imc} — Sobrepeso",  "#FFA500"
-                else:            cat, color = f"{imc} — Obesidad",   "#FF4444"
+                imc_fmt = _fmt(imc)
+                if   imc < 18.5: cat, color = f"{imc_fmt} — Bajo peso",  "#FFA500"
+                elif imc < 25:   cat, color = f"{imc_fmt} — Normal",     "#00D1FF"
+                elif imc < 30:   cat, color = f"{imc_fmt} — Sobrepeso",  "#FFA500"
+                else:            cat, color = f"{imc_fmt} — Obesidad",   "#FF4444"
                 lbl_imc.configure(text=cat, text_color=color)
         except ValueError:
             lbl_imc.configure(text="—", text_color="#00D1FF")
@@ -317,20 +324,21 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
 
     def agregar_medida_click():
         try:
-            peso   = float(entry_peso.get().strip())
-            altura = float(entry_altura.get().strip())
+            peso   = float(entry_peso.get().replace(",", ".").strip())
+            altura = float(entry_altura.get().replace(",", ".").strip())
         except ValueError:
             messagebox.showerror("Error", "Peso y altura deben ser números.", parent=popup)
             traer_al_frente()
             return
         notas = entry_notas_m.get().strip()
-        imc   = agregar_medida(cliente_id, peso, altura, notas)
+        # altura en cm → se pasa directamente, agregar_medida lo convierte internamente
+        imc = agregar_medida(cliente_id, peso, altura, notas)
         entry_peso.delete(0, "end")
         entry_altura.delete(0, "end")
         entry_notas_m.delete(0, "end")
         lbl_imc.configure(text="—", text_color="#00D1FF")
         cargar_historial()
-        messagebox.showinfo("Medida registrada", f"Medida guardada. IMC: {imc}", parent=popup)
+        messagebox.showinfo("Medida registrada", f"Medida guardada. IMC: {_fmt(imc)}", parent=popup)
         traer_al_frente()
 
     ctk.CTkButton(
@@ -340,7 +348,7 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
         command=agregar_medida_click
     ).pack(anchor="e", padx=20, pady=(5, 18))
 
-    # ── HISTORIAL ─────────────────────────────────────────────────────────────
+    # ── HISTORIAL DE MEDIDAS ──────────────────────────────────────────────────
     frame_historial = ctk.CTkFrame(scroll, corner_radius=18)
     frame_historial.pack(fill="x", padx=20, pady=(10, 30))
 
@@ -367,19 +375,26 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
     tabla_hist.column("Fecha",       anchor="center", width=110)
     tabla_hist.column("Peso (kg)",   anchor="center", width=100)
     tabla_hist.column("Altura (cm)", anchor="center", width=110)
-    tabla_hist.column("IMC",         anchor="center", width=180)
-    tabla_hist.column("Notas",       anchor="w",      width=300)
+    tabla_hist.column("IMC",         anchor="center", width=200)
+    tabla_hist.column("Notas",       anchor="w",      width=280)
     tabla_hist.pack(fill="x", expand=True)
 
     def cargar_historial():
         for fila in tabla_hist.get_children():
             tabla_hist.delete(fila)
         for id_m, fecha, peso, altura, imc, notas in obtener_historial(cliente_id):
-            if   imc < 18.5: cat = f"{imc} (Bajo peso)"
-            elif imc < 25:   cat = f"{imc} (Normal)"
-            elif imc < 30:   cat = f"{imc} (Sobrepeso)"
-            else:            cat = f"{imc} (Obesidad)"
-            tabla_hist.insert("", "end", values=(id_m, fecha, peso, altura, cat, notas or ""))
+            imc_fmt = _fmt(imc)
+            if   imc < 18.5: cat = f"{imc_fmt} (Bajo peso)"
+            elif imc < 25:   cat = f"{imc_fmt} (Normal)"
+            elif imc < 30:   cat = f"{imc_fmt} (Sobrepeso)"
+            else:            cat = f"{imc_fmt} (Obesidad)"
+            tabla_hist.insert("", "end", values=(
+                id_m, fecha,
+                _fmt(peso),
+                _fmt(altura),
+                cat,
+                notas or ""
+            ))
 
     cargar_historial()
 

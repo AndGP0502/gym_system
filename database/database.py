@@ -4,16 +4,13 @@ import sys
 
 from database.db_path import get_db_path
 
-DB_PATH = get_db_path()
-
-
 def inicializar_base_datos():
     """
     Crea las tablas si no existen. Se llama explícitamente desde main.py,
     no al importar el módulo — evita el error 'unable to open database file'
     en la PC del cliente.
     """
-    conexion = sqlite3.connect(DB_PATH)
+    conexion = sqlite3.connect(get_db_path())
     conexion.execute("PRAGMA foreign_keys = ON")
     cursor = conexion.cursor()
 

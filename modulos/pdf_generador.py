@@ -213,8 +213,8 @@ def generar_pdf_ficha_cliente(parent, cliente_id, nombre_cliente):
     col_der = [
         Paragraph(str(cliente[1]), ParagraphStyle("NombreCliente",
             parent=styles["Normal"], fontSize=18, fontName="Helvetica-Bold",
-            textColor=colors.HexColor("#1a1a2e"))),
-        Spacer(1, 4),
+            textColor=colors.HexColor("#1a1a2e"), spaceAfter=10)),
+        Spacer(1, 10),
         Paragraph(f"<b>Cedula:</b> {cliente[2]}", styles["GymCampo"]),
         Paragraph(f"<b>Telefono:</b> {cliente[3]}", styles["GymCampo"]),
         Paragraph(f"<b>Fecha de registro:</b> {cliente[4]}", styles["GymCampo"]),

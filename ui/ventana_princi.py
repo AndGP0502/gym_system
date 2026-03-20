@@ -19,6 +19,7 @@ from PIL import Image, ImageTk
 import os
 import sys
 from modulos.rutas import get_assets_dir, get_app_dir
+from datetime import datetime
 
 # Raíz del proyecto: funciona tanto corriendo main.py como como .exe
 if getattr(sys, 'frozen', False):
@@ -433,7 +434,7 @@ def iniciar_ventana():
     meses_dash = ["Todos", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     combo_mes_dash = ttk.Combobox(frame_filtro, values=meses_dash, width=14, state="readonly")
-    combo_mes_dash.set("Todos")
+    combo_mes_dash.set(meses_dash[datetime.now().month])
     combo_mes_dash.pack(side="left", padx=(0, 8))
 
     ttk.Label(frame_filtro, text="Año:",
@@ -441,7 +442,7 @@ def iniciar_ventana():
 
     anios_dash = ["Todos"] + [str(a) for a in range(2020, 2101)]
     combo_anio_dash = ttk.Combobox(frame_filtro, values=anios_dash, width=10, state="readonly")
-    combo_anio_dash.set("Todos")
+    combo_anio_dash.set(str(datetime.now().year))
     combo_anio_dash.pack(side="left", padx=(0, 8))
 
     lbl_filtro_info = ttk.Label(frame_filtro, text="Mostrando todos los periodos",
