@@ -6,11 +6,10 @@ from datetime import datetime
 from tkinter import filedialog, messagebox
 from modulos.rutas import get_db_path, get_config_path, get_backup_dir
 
-DB_PATH     = get_db_path()
-CONFIG_PATH = get_config_path()        # solo donde se use
-CARPETA_BACKUP = get_backup_dir()      # solo en backup_db.py
+DB_PATH        = get_db_path()
+CONFIG_PATH    = get_config_path()
+CARPETA_BACKUP = get_backup_dir()
 
-# ── Estructura exacta de la BD ───────────────────────────────────────────────
 TABLAS = {
     "clientes": [
         "id", "nombre", "cedula", "telefono",
@@ -40,7 +39,6 @@ TABLAS = {
     ],
 }
 
-# ── Colores por tabla ────────────────────────────────────────────────────────
 COLORES = {
     "clientes":          "4F81BD",
     "membresias":        "9BBB59",
@@ -53,23 +51,17 @@ COLORES = {
 
 
 def _estilo_encabezado(ws, columnas: list, color_hex: str):
-    """Aplica estilo a la fila de encabezados de una hoja."""
-    fill  = PatternFill("solid", fgColor=color_hex)
+    fill   = PatternFill("solid", fgColor=color_hex)
     fuente = Font(bold=True, color="FFFFFF")
     for col_idx, nombre_col in enumerate(columnas, start=1):
         celda = ws.cell(row=1, column=col_idx, value=nombre_col)
-        celda.fill   = fill
-        celda.font   = fuente
+        celda.fill      = fill
+        celda.font      = fuente
         celda.alignment = Alignment(horizontal="center")
         ws.column_dimensions[celda.column_letter].width = max(len(nombre_col) + 4, 14)
 
 
-# ── EXPORTAR BACKUP A EXCEL ──────────────────────────────────────────────────
 def exportar_backup_excel() -> str | None:
-    """
-    Lee gym.db y genera un .xlsx con una hoja por tabla.
-    Devuelve la ruta del archivo creado, o None si se canceló.
-    """
     os.makedirs(CARPETA_BACKUP, exist_ok=True)
 
     ruta_destino = filedialog.asksaveasfilename(
@@ -85,12 +77,11 @@ def exportar_backup_excel() -> str | None:
     try:
         con = sqlite3.connect(DB_PATH)
         wb  = openpyxl.Workbook()
-        wb.remove(wb.active)  # quitar hoja vacía por defecto
+        wb.remove(wb.active)
 
         for tabla, columnas in TABLAS.items():
             ws = wb.create_sheet(title=tabla)
             _estilo_encabezado(ws, columnas, COLORES.get(tabla, "4F81BD"))
-
             try:
                 filas = con.execute(
                     f"SELECT {', '.join(columnas)} FROM {tabla}"
@@ -98,7 +89,6 @@ def exportar_backup_excel() -> str | None:
                 for fila in filas:
                     ws.append(list(fila))
             except Exception as e:
-                # Si la tabla no existe o una columna cambió, se deja la hoja vacía con nota
                 ws.cell(row=2, column=1, value=f"[ERROR al leer tabla: {e}]")
 
         con.close()
@@ -110,17 +100,15 @@ def exportar_backup_excel() -> str | None:
         return ruta_destino
 
     except Exception as e:
-        messagebox.showerror("Error al exportar", f"No se pudo crear el backup Excel:\n{e}")
+        import traceback
+        messagebox.showerror(
+            "Error al exportar",
+            f"No se pudo crear el backup Excel:\n{e}\n\n{traceback.format_exc()}"
+        )
         return None
 
 
-# ── IMPORTAR EXCEL A LA BD ───────────────────────────────────────────────────
 def importar_desde_excel() -> bool:
-    """
-    Lee un .xlsx generado por exportar_backup_excel() y reconstruye gym.db.
-    Usa INSERT OR REPLACE para no duplicar registros.
-    Devuelve True si se importó correctamente, False si se canceló o falló.
-    """
     archivo = filedialog.askopenfilename(
         title="Seleccionar backup Excel a importar",
         filetypes=[("Excel", "*.xlsx")],
@@ -133,7 +121,6 @@ def importar_desde_excel() -> bool:
         wb  = openpyxl.load_workbook(archivo, read_only=True, data_only=True)
         con = sqlite3.connect(DB_PATH)
         cur = con.cursor()
-
         errores = []
 
         for tabla, columnas in TABLAS.items():
@@ -145,9 +132,8 @@ def importar_desde_excel() -> bool:
             rows = list(ws.iter_rows(values_only=True))
 
             if len(rows) < 2:
-                continue  # hoja vacía, se omite sin error
+                continue
 
-            # Verificar que los encabezados coincidan
             encabezados_excel = [str(c).strip() if c else "" for c in rows[0]]
             if encabezados_excel != columnas:
                 errores.append(
@@ -161,17 +147,13 @@ def importar_desde_excel() -> bool:
             cols_str     = ", ".join(columnas)
             sql          = f"INSERT OR REPLACE INTO {tabla} ({cols_str}) VALUES ({placeholders})"
 
-            registros_ok = 0
             for fila in rows[1:]:
-                # Saltar filas completamente vacías
                 if all(v is None for v in fila):
                     continue
-                # Saltar filas de error generadas por el exportador
                 if str(fila[0]).startswith("[ERROR"):
                     continue
                 try:
                     cur.execute(sql, list(fila))
-                    registros_ok += 1
                 except Exception as e:
                     errores.append(f"Fila en '{tabla}': {e} | datos: {fila}")
 
@@ -180,10 +162,10 @@ def importar_desde_excel() -> bool:
         wb.close()
 
         if errores:
-            detalle = "\n".join(errores[:10])  # mostrar máximo 10 errores
             messagebox.showwarning(
                 "Importación con advertencias",
-                f"Se importaron datos con los siguientes problemas:\n\n{detalle}"
+                f"Se importaron datos con los siguientes problemas:\n\n" +
+                "\n".join(errores[:10])
             )
         else:
             messagebox.showinfo(
@@ -193,13 +175,15 @@ def importar_desde_excel() -> bool:
         return True
 
     except Exception as e:
-        messagebox.showerror("Error al importar", f"No se pudo importar el backup:\n{e}")
+        import traceback
+        messagebox.showerror(
+            "Error al importar",
+            f"No se pudo importar el backup:\n{e}\n\n{traceback.format_exc()}"
+        )
         return False
 
 
-# ── BACKUP .db CLÁSICO (se mantiene como respaldo adicional) ─────────────────
 def crear_backup() -> str:
-    """Crea un backup binario de gym.db (complementario al Excel)."""
     os.makedirs(CARPETA_BACKUP, exist_ok=True)
     fecha       = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     ruta_backup = os.path.join(CARPETA_BACKUP, f"gym_backup_{fecha}.db")

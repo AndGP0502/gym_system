@@ -15,8 +15,6 @@ from modulos.pdf_generador import generar_pdf_ficha_cliente
 
 def abrir_ventana_clientes(parent):
 
-    ctk.set_appearance_mode("dark")
-    ctk.set_default_color_theme("dark-blue")
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Gestión de Clientes")
     ventana.state("zoomed")
