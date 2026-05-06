@@ -338,36 +338,40 @@ def abrir_ventana_facturacion(parent):
         if not items:
             messagebox.showwarning("Sin items", "Agrega al menos un servicio.", parent=ventana)
             return
+
         config = obtener_config_sri()
-        if not config:
+        if not config or not config.get("ruc"):
             messagebox.showerror("Sin configuración",
-                "Configura los datos del SRI primero.", parent=ventana)
+                "Configura el RUC y clave del SRI primero.", parent=ventana)
             return
-        if not config.get("ruta_certificado") or not os.path.exists(config["ruta_certificado"]):
-            messagebox.showerror("Sin certificado",
-                "Configura la ruta al archivo .p12 en la configuración SRI.", parent=ventana)
+
+        if not config.get("clave_sri"):
+            messagebox.showerror("Sin clave SRI",
+                "Configura la clave del portal SRI para usar Selenium.", parent=ventana)
             return
 
         factura = _construir_factura(config)
-        fid     = guardar_factura(factura, items)
+        fid = guardar_factura(factura, items)
 
-        messagebox.showinfo("Procesando",
-            "Enviando al SRI...\nEsto puede tomar unos segundos.", parent=ventana)
+        messagebox.showinfo("Abriendo SRI",
+            "Se abrirá Chrome con el facturador del SRI.\n"
+            "El formulario se llenará automáticamente.", parent=ventana)
 
-        resultado = procesar_factura_completa(fid)
+        from sri.selenium_sri import emitir_factura_sri
+        resultado = emitir_factura_sri(
+            ruc=config["ruc"],
+            clave=config.get("clave_sri", ""),
+            factura=factura,
+            detalles=items
+        )
 
         if resultado["ok"]:
-            messagebox.showinfo("✅ Autorizada",
-                f"Factura AUTORIZADA\n\n"
-                f"Clave de acceso: {resultado['clave_acceso']}\n"
-                f"Autorización: {resultado['numero_autorizacion']}",
-                parent=ventana)
+            messagebox.showinfo("✅ Enviado",
+                resultado["mensaje"], parent=ventana)
             limpiar_formulario()
         else:
-            messagebox.showerror("❌ Error SRI",
-                f"Estado: {resultado.get('estado', 'ERROR')}\n"
-                f"{resultado.get('error', '')}",
-                parent=ventana)
+            messagebox.showerror("❌ Error",
+                resultado["error"], parent=ventana)
 
         cargar_historial()
         actualizar_cards()
@@ -461,147 +465,192 @@ def abrir_ventana_facturacion(parent):
     cargar_historial()
     actualizar_cards()
 
-
-# ── VENTANA CONFIGURACIÓN SRI ─────────────────────────────────────────────────
-
 def abrir_config_sri(parent):
     from modulos.rutas import get_db_path
     DB = get_db_path()
 
     popup = ctk.CTkToplevel(parent)
     popup.title("Configuración SRI")
-    popup.geometry("620x780")
+    popup.geometry("760x620")
     popup.resizable(False, False)
     popup.attributes("-topmost", True)
     popup.after(300, lambda: popup.attributes("-topmost", False))
-    popup.lift(); popup.focus_force()
+    popup.lift()
+    popup.focus_force()
 
-    ctk.CTkLabel(popup, text="⚙ Configuración SRI Ecuador",
-                 font=("Segoe UI", 18, "bold"),
-                 text_color="#cba6f7").pack(pady=(20, 4))
-    ctk.CTkLabel(popup, text="Datos del emisor y certificado digital",
-                 font=("Segoe UI", 11), text_color="#6c7086").pack(pady=(0, 16))
+    ctk.CTkLabel(
+        popup,
+        text="⚙ Configuración SRI Ecuador",
+        font=("Segoe UI", 24, "bold"),
+        text_color="#cba6f7"
+    ).pack(pady=(25, 4))
 
-    frame = ctk.CTkScrollableFrame(popup, fg_color="transparent")
-    frame.pack(fill="both", expand=True, padx=20)
+    ctk.CTkLabel(
+        popup,
+        text="Configuración para emisión automática con Selenium",
+        font=("Segoe UI", 12),
+        text_color="#6c7086"
+    ).pack(pady=(0, 15))
 
-    def _campo(label, row, placeholder=""):
-        ctk.CTkLabel(frame, text=label, font=("Segoe UI", 12),
-                     text_color="#cdd6f4").grid(row=row*2, column=0, sticky="w", pady=(6,0))
-        e = ctk.CTkEntry(frame, width=480, height=36, placeholder_text=placeholder)
-        e.grid(row=row*2+1, column=0, pady=(2, 4))
-        return e
+    frame = ctk.CTkFrame(popup, fg_color="transparent")
+    frame.pack(fill="x", padx=55, pady=(5, 10))
 
-    e_ruc          = _campo("RUC del emisor",             0, "1234567890001")
-    e_razon        = _campo("Razón social",                1, "NOMBRE DEL GIMNASIO")
-    e_comercial    = _campo("Nombre comercial",            2, "FIVGYM")
-    e_dir_matriz   = _campo("Dirección matriz",            3)
-    e_dir_sucursal = _campo("Dirección sucursal",          4)
-    e_estab        = _campo("Código establecimiento",      5, "001")
-    e_pto          = _campo("Punto de emisión",            6, "001")
-    e_correo       = _campo("Correo remitente",            7)
-    e_smtp         = _campo("SMTP host",                   8, "smtp.gmail.com")
-    e_smtp_port    = _campo("SMTP puerto",                 9, "587")
-    e_smtp_user    = _campo("SMTP usuario",               10)
-    e_smtp_pass    = _campo("SMTP contraseña",            11)
+    def crear_campo(label, placeholder="", show=""):
+        ctk.CTkLabel(
+            frame,
+            text=label,
+            font=("Segoe UI", 12),
+            text_color="#cdd6f4",
+            anchor="w"
+        ).pack(fill="x", pady=(8, 2))
 
-    # Ambiente
-    ctk.CTkLabel(frame, text="Ambiente", font=("Segoe UI", 12),
-                 text_color="#cdd6f4").grid(row=24, column=0, sticky="w", pady=(6,0))
-    combo_amb = ctk.CTkComboBox(frame, width=480,
-                                values=["1 - Pruebas", "2 - Producción"],
-                                state="readonly")
-    combo_amb.set("2 - Producción")
-    combo_amb.grid(row=25, column=0, pady=(2, 4))
+        entry = ctk.CTkEntry(
+            frame,
+            height=40,
+            placeholder_text=placeholder,
+            show=show
+        )
+        entry.pack(fill="x")
+        return entry
 
-    # Certificado .p12
-    ctk.CTkLabel(frame, text="Archivo certificado (.p12)",
-                 font=("Segoe UI", 12), text_color="#cdd6f4").grid(
-        row=26, column=0, sticky="w", pady=(6,0))
-    frame_p12 = ctk.CTkFrame(frame, fg_color="transparent")
-    frame_p12.grid(row=27, column=0, pady=(2,4), sticky="w")
-    e_p12 = ctk.CTkEntry(frame_p12, width=380, height=36)
-    e_p12.pack(side="left")
-    ctk.CTkButton(frame_p12, text="📂", width=50, height=36,
-                  command=lambda: [e_p12.delete(0,"end"),
-                                   e_p12.insert(0, filedialog.askopenfilename(
-                                       filetypes=[("Certificado", "*.p12 *.pfx")],
-                                       parent=popup) or "")]
-                  ).pack(side="left", padx=4)
+    e_ruc = crear_campo("RUC del emisor", "Ej: 1714518964001")
+    e_razon = crear_campo("Razón social", "Nombre completo del gimnasio")
+    e_dir = crear_campo("Dirección", "Dirección del establecimiento")
+    e_clave_sri = crear_campo("Clave portal SRI", show="*")
 
-    e_clave_p12 = _campo("Contraseña del certificado", 14)
-    e_clave_p12.configure(show="*")
-
-    # Cargar config existente
     con = sqlite3.connect(DB)
-    cfg = con.execute("SELECT * FROM configuracion_sri WHERE id=1").fetchone()
+
+    try:
+        con.execute("""
+            ALTER TABLE configuracion_sri
+            ADD COLUMN clave_sri TEXT DEFAULT ''
+        """)
+    except:
+        pass
+
+    cfg = con.execute("""
+        SELECT ruc, razon_social, direccion_matriz, clave_sri
+        FROM configuracion_sri
+        WHERE id = 1
+    """).fetchone()
+
     con.close()
 
     if cfg:
-        cols = ["id","ruc","razon_social","nombre_comercial","direccion_matriz",
-                "direccion_sucursal","codigo_establecimiento","punto_emision",
-                "ambiente","tipo_emision","ruta_certificado","clave_certificado",
-                "siguiente_secuencial","correo_remitente","smtp_host","smtp_port",
-                "smtp_usuario","smtp_clave","ruta_xmls","ruta_rides"]
-        d = dict(zip(cols, cfg))
-        for entry, key in [
-            (e_ruc, "ruc"), (e_razon, "razon_social"),
-            (e_comercial, "nombre_comercial"), (e_dir_matriz, "direccion_matriz"),
-            (e_dir_sucursal, "direccion_sucursal"),
-            (e_estab, "codigo_establecimiento"), (e_pto, "punto_emision"),
-            (e_correo, "correo_remitente"), (e_smtp, "smtp_host"),
-            (e_smtp_port, "smtp_port"), (e_smtp_user, "smtp_usuario"),
-            (e_smtp_pass, "smtp_clave"), (e_p12, "ruta_certificado"),
-            (e_clave_p12, "clave_certificado"),
-        ]:
-            entry.delete(0, "end")
-            entry.insert(0, str(d.get(key, "") or ""))
-        amb = d.get("ambiente", 2)
-        combo_amb.set("1 - Pruebas" if amb == 1 else "2 - Producción")
+        e_ruc.insert(0, str(cfg[0] or ""))
+        e_razon.insert(0, str(cfg[1] or ""))
+        e_dir.insert(0, str(cfg[2] or ""))
+        e_clave_sri.insert(0, str(cfg[3] or ""))
 
     def guardar_config():
-        amb = 1 if combo_amb.get().startswith("1") else 2
+        if not e_ruc.get().strip():
+            messagebox.showerror("Error", "El RUC es obligatorio.", parent=popup)
+            return
+
+        if not e_razon.get().strip():
+            messagebox.showerror("Error", "La razón social es obligatoria.", parent=popup)
+            return
+
+        if not e_clave_sri.get().strip():
+            messagebox.showerror("Error", "Ingresa la clave del portal SRI.", parent=popup)
+            return
+
         con = sqlite3.connect(DB)
+
         con.execute("""
             INSERT INTO configuracion_sri (
-                id, ruc, razon_social, nombre_comercial,
-                direccion_matriz, direccion_sucursal,
-                codigo_establecimiento, punto_emision, ambiente,
-                ruta_certificado, clave_certificado,
-                correo_remitente, smtp_host, smtp_port,
-                smtp_usuario, smtp_clave
-            ) VALUES (1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                id, ruc, razon_social, direccion_matriz,
+                codigo_establecimiento, punto_emision,
+                ambiente, clave_sri
+            )
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 ruc=excluded.ruc,
                 razon_social=excluded.razon_social,
-                nombre_comercial=excluded.nombre_comercial,
                 direccion_matriz=excluded.direccion_matriz,
-                direccion_sucursal=excluded.direccion_sucursal,
-                codigo_establecimiento=excluded.codigo_establecimiento,
-                punto_emision=excluded.punto_emision,
-                ambiente=excluded.ambiente,
-                ruta_certificado=excluded.ruta_certificado,
-                clave_certificado=excluded.clave_certificado,
-                correo_remitente=excluded.correo_remitente,
-                smtp_host=excluded.smtp_host,
-                smtp_port=excluded.smtp_port,
-                smtp_usuario=excluded.smtp_usuario,
-                smtp_clave=excluded.smtp_clave
+                clave_sri=excluded.clave_sri
         """, (
-            e_ruc.get().strip(), e_razon.get().strip(),
-            e_comercial.get().strip(), e_dir_matriz.get().strip(),
-            e_dir_sucursal.get().strip(), e_estab.get().strip() or "001",
-            e_pto.get().strip() or "001", amb,
-            e_p12.get().strip(), e_clave_p12.get().strip(),
-            e_correo.get().strip(), e_smtp.get().strip(),
-            int(e_smtp_port.get() or 587), e_smtp_user.get().strip(),
-            e_smtp_pass.get().strip()
+            e_ruc.get().strip(),
+            e_razon.get().strip(),
+            e_dir.get().strip(),
+            "001",
+            "001",
+            2,
+            e_clave_sri.get().strip()
         ))
-        con.commit(); con.close()
-        messagebox.showinfo("Guardado", "Configuración SRI guardada correctamente.", parent=popup)
-        popup.destroy()
 
-    ctk.CTkButton(frame, text="💾 Guardar configuración",
-                  width=480, height=42, fg_color="#1a4731",
-                  hover_color="#166534", font=("Segoe UI", 13, "bold"),
-                  command=guardar_config).grid(row=30, column=0, pady=20)
+        con.commit()
+        con.close()
+
+        messagebox.showinfo("✅ Guardado", "Datos guardados correctamente.", parent=popup)
+
+    def probar_conexion():
+        messagebox.showinfo(
+            "Prueba",
+            "El botón de probar conexión ya funciona visualmente.",
+            parent=popup
+        )
+
+    def eliminar_config():
+        confirmar = messagebox.askyesno(
+            "Eliminar datos",
+            "¿Seguro que deseas eliminar los datos guardados del SRI?",
+            parent=popup
+        )
+
+        if not confirmar:
+            return
+
+        con = sqlite3.connect(DB)
+
+        con.execute("""
+            UPDATE configuracion_sri
+            SET ruc='', razon_social='', direccion_matriz='', clave_sri=''
+            WHERE id=1
+        """)
+
+        con.commit()
+        con.close()
+
+        e_ruc.delete(0, "end")
+        e_razon.delete(0, "end")
+        e_dir.delete(0, "end")
+        e_clave_sri.delete(0, "end")
+
+        messagebox.showinfo("✅ Eliminado", "Los datos del SRI fueron eliminados.", parent=popup)
+
+    frame_botones = ctk.CTkFrame(popup, fg_color="#313244", corner_radius=14)
+    frame_botones.pack(fill="x", padx=55, pady=(20, 10))
+
+    ctk.CTkButton(
+        frame_botones,
+        text="💾 Guardar",
+        width=170,
+        height=42,
+        fg_color="#1a4731",
+        hover_color="#166534",
+        font=("Segoe UI", 13, "bold"),
+        command=guardar_config
+    ).pack(side="left", padx=15, pady=15)
+
+    ctk.CTkButton(
+        frame_botones,
+        text="🔍 Probar conexión",
+        width=190,
+        height=42,
+        fg_color="#1e3a5f",
+        hover_color="#2d5a8e",
+        font=("Segoe UI", 13, "bold"),
+        command=probar_conexion
+    ).pack(side="left", padx=15, pady=15)
+
+    ctk.CTkButton(
+        frame_botones,
+        text="🗑 Eliminar",
+        width=160,
+        height=42,
+        fg_color="#4a1c1c",
+        hover_color="#7f1d1d",
+        font=("Segoe UI", 13, "bold"),
+        command=eliminar_config
+    ).pack(side="left", padx=15, pady=15)
