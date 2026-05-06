@@ -20,7 +20,7 @@ import os
 import sys
 from modulos.rutas import get_assets_dir, get_app_dir
 from datetime import datetime
-
+from ui.facturacion_ui import abrir_ventana_facturacion
 # Raíz del proyecto: funciona tanto corriendo main.py como como .exe
 if getattr(sys, 'frozen', False):
     _RAIZ = os.path.dirname(sys.executable)
@@ -291,6 +291,11 @@ def iniciar_ventana():
     ttk.Button(
         sidebar, text="🏷 Membresías", bootstyle="primary-outline",
         command=lambda: abrir_ventana_membresias(ventana), **boton_style
+    ).pack(pady=6)
+
+    ttk.Button(
+    sidebar, text="🧾 Facturación", bootstyle="primary-outline",
+    command=lambda: abrir_ventana_facturacion(ventana), **boton_style
     ).pack(pady=6)
 
     ttk.Button(
