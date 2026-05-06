@@ -9,8 +9,10 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
 from database.database import inicializar_base_datos
+from database.facturacion_db import inicializar_tablas_facturacion  # ← agregar
 
 inicializar_base_datos()
+inicializar_tablas_facturacion()  # ← agregar
 
 from ui.ventana_princi import iniciar_ventana
 
