@@ -471,186 +471,185 @@ def abrir_config_sri(parent):
 
     popup = ctk.CTkToplevel(parent)
     popup.title("Configuración SRI")
-    popup.geometry("760x620")
+    popup.geometry("650x750")
     popup.resizable(False, False)
     popup.attributes("-topmost", True)
     popup.after(300, lambda: popup.attributes("-topmost", False))
     popup.lift()
     popup.focus_force()
 
-    ctk.CTkLabel(
-        popup,
-        text="⚙ Configuración SRI Ecuador",
-        font=("Segoe UI", 24, "bold"),
-        text_color="#cba6f7"
-    ).pack(pady=(25, 4))
+    # ── SCROLL ──
+    scroll = ctk.CTkScrollableFrame(popup, fg_color="#1e1e2e", width=630, height=580)
+    scroll.pack(fill="both", expand=True, padx=10, pady=10)
 
-    ctk.CTkLabel(
-        popup,
-        text="Configuración para emisión automática con Selenium",
-        font=("Segoe UI", 12),
-        text_color="#6c7086"
-    ).pack(pady=(0, 15))
+    ctk.CTkLabel(scroll, text="⚙ Configuración SRI",
+                 font=("Segoe UI", 24, "bold"), text_color="#cba6f7").pack(pady=(25, 4))
+    ctk.CTkLabel(scroll, text="Datos necesarios para emitir facturas electrónicas",
+                 font=("Segoe UI", 12), text_color="#6c7086").pack(pady=(0, 20))
 
-    frame = ctk.CTkFrame(popup, fg_color="transparent")
-    frame.pack(fill="x", padx=55, pady=(5, 10))
+    frame = ctk.CTkFrame(scroll, fg_color="#181825", corner_radius=16)
+    frame.pack(fill="x", padx=25, pady=5)
 
-    def crear_campo(label, placeholder="", show=""):
-        ctk.CTkLabel(
-            frame,
-            text=label,
-            font=("Segoe UI", 12),
-            text_color="#cdd6f4",
-            anchor="w"
-        ).pack(fill="x", pady=(8, 2))
+    def _campo(label, placeholder="", show=""):
+        ctk.CTkLabel(frame, text=label, font=("Segoe UI", 12),
+                     text_color="#cdd6f4", anchor="w").pack(fill="x", padx=22, pady=(12, 2))
+        entrada = ctk.CTkEntry(frame, height=40, placeholder_text=placeholder, show=show)
+        entrada.pack(fill="x", padx=22)
+        return entrada
 
-        entry = ctk.CTkEntry(
-            frame,
-            height=40,
-            placeholder_text=placeholder,
-            show=show
+    e_ruc   = _campo("RUC del emisor", "Ej: 1714518964001")
+    e_razon = _campo("Razón social", "Nombre del gimnasio o contribuyente")
+    e_dir   = _campo("Dirección", "Dirección registrada")
+
+    ctk.CTkLabel(frame, text="Certificado digital (.p12)", font=("Segoe UI", 12),
+                 text_color="#cdd6f4", anchor="w").pack(fill="x", padx=22, pady=(12, 2))
+
+    frame_p12 = ctk.CTkFrame(frame, fg_color="transparent")
+    frame_p12.pack(fill="x", padx=22)
+
+    e_p12 = ctk.CTkEntry(frame_p12, height=40, placeholder_text="Selecciona el archivo .p12")
+    e_p12.pack(side="left", fill="x", expand=True)
+
+    def seleccionar_p12():
+        ruta = filedialog.askopenfilename(
+            title="Seleccionar certificado .p12",
+            filetypes=[("Certificado digital", "*.p12 *.pfx"), ("Todos los archivos", "*.*")],
+            parent=popup
         )
-        entry.pack(fill="x")
-        return entry
+        if ruta:
+            e_p12.delete(0, "end")
+            e_p12.insert(0, ruta)
 
-    e_ruc = crear_campo("RUC del emisor", "Ej: 1714518964001")
-    e_razon = crear_campo("Razón social", "Nombre completo del gimnasio")
-    e_dir = crear_campo("Dirección", "Dirección del establecimiento")
-    e_clave_sri = crear_campo("Clave portal SRI", show="*")
+    ctk.CTkButton(frame_p12, text="📂", width=50, height=40,
+                  command=seleccionar_p12).pack(side="left", padx=(8, 0))
 
-    con = sqlite3.connect(DB)
+    e_clave = _campo("Clave del certificado", show="*")
 
+    # ── CARGAR CONFIG EXISTENTE ──
     try:
-        con.execute("""
-            ALTER TABLE configuracion_sri
-            ADD COLUMN clave_sri TEXT DEFAULT ''
-        """)
-    except:
+        con = sqlite3.connect(DB)
+        cfg = con.execute("""
+            SELECT ruc, razon_social, direccion_matriz, ruta_certificado, clave_certificado
+            FROM configuracion_sri WHERE id = 1
+        """).fetchone()
+        con.close()
+        if cfg:
+            e_ruc.insert(0, str(cfg[0] or ""))
+            e_razon.insert(0, str(cfg[1] or ""))
+            e_dir.insert(0, str(cfg[2] or ""))
+            e_p12.insert(0, str(cfg[3] or ""))
+            e_clave.insert(0, str(cfg[4] or ""))
+    except Exception:
         pass
 
-    cfg = con.execute("""
-        SELECT ruc, razon_social, direccion_matriz, clave_sri
-        FROM configuracion_sri
-        WHERE id = 1
-    """).fetchone()
-
-    con.close()
-
-    if cfg:
-        e_ruc.insert(0, str(cfg[0] or ""))
-        e_razon.insert(0, str(cfg[1] or ""))
-        e_dir.insert(0, str(cfg[2] or ""))
-        e_clave_sri.insert(0, str(cfg[3] or ""))
-
+    # ── LABEL DE RESULTADO ──
+    lbl_resultado = ctk.CTkLabel(frame, text="", font=("Segoe UI", 13, "bold"))
+    
     def guardar_config():
+        lbl_resultado.configure(text="")
+
         if not e_ruc.get().strip():
-            messagebox.showerror("Error", "El RUC es obligatorio.", parent=popup)
+            lbl_resultado.configure(text="❌ Falta el RUC del emisor", text_color="#f38ba8")
+            lbl_resultado.pack(pady=(8, 4))
             return
-
+        if len(e_ruc.get().strip()) != 13:
+            lbl_resultado.configure(text="❌ El RUC debe tener 13 dígitos", text_color="#f38ba8")
+            lbl_resultado.pack(pady=(8, 4))
+            return
         if not e_razon.get().strip():
-            messagebox.showerror("Error", "La razón social es obligatoria.", parent=popup)
+            lbl_resultado.configure(text="❌ Falta la razón social", text_color="#f38ba8")
+            lbl_resultado.pack(pady=(8, 4))
+            return
+        if not e_p12.get().strip():
+            lbl_resultado.configure(text="❌ Selecciona el certificado .p12", text_color="#f38ba8")
+            lbl_resultado.pack(pady=(8, 4))
+            return
+        if not os.path.exists(e_p12.get().strip()):
+            lbl_resultado.configure(text="❌ El archivo .p12 no existe en esa ruta", text_color="#f38ba8")
+            lbl_resultado.pack(pady=(8, 4))
+            return
+        if not e_clave.get().strip():
+            lbl_resultado.configure(text="❌ Falta la clave del certificado", text_color="#f38ba8")
+            lbl_resultado.pack(pady=(8, 4))
             return
 
-        if not e_clave_sri.get().strip():
-            messagebox.showerror("Error", "Ingresa la clave del portal SRI.", parent=popup)
+        # ── Validar clave con OpenSSL ──
+        lbl_resultado.configure(text="⏳ Validando certificado...", text_color="#f9e2af")
+        lbl_resultado.pack(pady=(8, 4))
+        popup.update()
+
+        try:
+            import subprocess
+            resultado = subprocess.run([
+                "openssl", "pkcs12",
+                "-in", e_p12.get().strip(),
+                "-nokeys", "-clcerts",
+                "-passin", f"pass:{e_clave.get().strip()}",
+                "-legacy",
+                "-out", os.devnull
+            ], capture_output=True, timeout=10)
+
+            if resultado.returncode != 0:
+                lbl_resultado.configure(
+                    text="❌ Clave incorrecta o certificado inválido",
+                    text_color="#f38ba8"
+                )
+                lbl_resultado.pack(pady=(8, 4))
+                return
+        except FileNotFoundError:
+            pass  # OpenSSL no instalado, se omite validación
+        except Exception as ex:
+            lbl_resultado.configure(text=f"❌ Error validando certificado: {ex}", text_color="#f38ba8")
+            lbl_resultado.pack(pady=(8, 4))
             return
 
-        con = sqlite3.connect(DB)
-
-        con.execute("""
-            INSERT INTO configuracion_sri (
-                id, ruc, razon_social, direccion_matriz,
-                codigo_establecimiento, punto_emision,
-                ambiente, clave_sri
+        # ── Guardar en BD ──
+        try:
+            con = sqlite3.connect(DB)
+            con.execute("""
+                INSERT INTO configuracion_sri (
+                    id, ruc, razon_social, direccion_matriz,
+                    codigo_establecimiento, punto_emision, ambiente,
+                    ruta_certificado, clave_certificado
+                ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    ruc=excluded.ruc,
+                    razon_social=excluded.razon_social,
+                    direccion_matriz=excluded.direccion_matriz,
+                    codigo_establecimiento=excluded.codigo_establecimiento,
+                    punto_emision=excluded.punto_emision,
+                    ambiente=excluded.ambiente,
+                    ruta_certificado=excluded.ruta_certificado,
+                    clave_certificado=excluded.clave_certificado
+            """, (
+                e_ruc.get().strip(),
+                e_razon.get().strip(),
+                e_dir.get().strip(),
+                "001", "001", 2,
+                e_p12.get().strip(),
+                e_clave.get().strip()
+            ))
+            con.commit()
+            con.close()
+            lbl_resultado.configure(
+                text="✅ Certificado válido — Configuración guardada correctamente",
+                text_color="#a6e3a1"
             )
-            VALUES (1, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                ruc=excluded.ruc,
-                razon_social=excluded.razon_social,
-                direccion_matriz=excluded.direccion_matriz,
-                clave_sri=excluded.clave_sri
-        """, (
-            e_ruc.get().strip(),
-            e_razon.get().strip(),
-            e_dir.get().strip(),
-            "001",
-            "001",
-            2,
-            e_clave_sri.get().strip()
-        ))
+            lbl_resultado.pack(pady=(8, 4))
 
-        con.commit()
-        con.close()
+        except Exception as ex:
+            lbl_resultado.configure(text=f"❌ Error al guardar: {ex}", text_color="#f38ba8")
+            lbl_resultado.pack(pady=(8, 4))
 
-        messagebox.showinfo("✅ Guardado", "Datos guardados correctamente.", parent=popup)
-
-    def probar_conexion():
-        messagebox.showinfo(
-            "Prueba",
-            "El botón de probar conexión ya funciona visualmente.",
-            parent=popup
-        )
-
-    def eliminar_config():
-        confirmar = messagebox.askyesno(
-            "Eliminar datos",
-            "¿Seguro que deseas eliminar los datos guardados del SRI?",
-            parent=popup
-        )
-
-        if not confirmar:
-            return
-
-        con = sqlite3.connect(DB)
-
-        con.execute("""
-            UPDATE configuracion_sri
-            SET ruc='', razon_social='', direccion_matriz='', clave_sri=''
-            WHERE id=1
-        """)
-
-        con.commit()
-        con.close()
-
-        e_ruc.delete(0, "end")
-        e_razon.delete(0, "end")
-        e_dir.delete(0, "end")
-        e_clave_sri.delete(0, "end")
-
-        messagebox.showinfo("✅ Eliminado", "Los datos del SRI fueron eliminados.", parent=popup)
-
-    frame_botones = ctk.CTkFrame(popup, fg_color="#313244", corner_radius=14)
-    frame_botones.pack(fill="x", padx=55, pady=(20, 10))
-
+# ── BOTÓN GUARDAR ──
     ctk.CTkButton(
-        frame_botones,
-        text="💾 Guardar",
-        width=170,
-        height=42,
+        frame,
+        text="💾 Guardar configuración",
+        height=46,
         fg_color="#1a4731",
         hover_color="#166534",
-        font=("Segoe UI", 13, "bold"),
+        font=("Segoe UI", 14, "bold"),
         command=guardar_config
-    ).pack(side="left", padx=15, pady=15)
+    ).pack(fill="x", padx=22, pady=(20, 10))
 
-    ctk.CTkButton(
-        frame_botones,
-        text="🔍 Probar conexión",
-        width=190,
-        height=42,
-        fg_color="#1e3a5f",
-        hover_color="#2d5a8e",
-        font=("Segoe UI", 13, "bold"),
-        command=probar_conexion
-    ).pack(side="left", padx=15, pady=15)
-
-    ctk.CTkButton(
-        frame_botones,
-        text="🗑 Eliminar",
-        width=160,
-        height=42,
-        fg_color="#4a1c1c",
-        hover_color="#7f1d1d",
-        font=("Segoe UI", 13, "bold"),
-        command=eliminar_config
-    ).pack(side="left", padx=15, pady=15)
+    lbl_resultado.pack(pady=(0, 16))
