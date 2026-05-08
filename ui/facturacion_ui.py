@@ -573,33 +573,22 @@ def abrir_config_sri(parent):
             lbl_resultado.pack(pady=(8, 4))
             return
 
-        # ── Validar clave con OpenSSL ──
+        # ── Validar clave con cryptography ──
         lbl_resultado.configure(text="⏳ Validando certificado...", text_color="#f9e2af")
         lbl_resultado.pack(pady=(8, 4))
         popup.update()
 
         try:
-            import subprocess
-            resultado = subprocess.run([
-                "openssl", "pkcs12",
-                "-in", e_p12.get().strip(),
-                "-nokeys", "-clcerts",
-                "-passin", f"pass:{e_clave.get().strip()}",
-                "-legacy",
-                "-out", os.devnull
-            ], capture_output=True, timeout=10)
-
-            if resultado.returncode != 0:
-                lbl_resultado.configure(
-                    text="❌ Clave incorrecta o certificado inválido",
-                    text_color="#f38ba8"
-                )
-                lbl_resultado.pack(pady=(8, 4))
-                return
-        except FileNotFoundError:
-            pass  # OpenSSL no instalado, se omite validación
-        except Exception as ex:
-            lbl_resultado.configure(text=f"❌ Error validando certificado: {ex}", text_color="#f38ba8")
+            from cryptography.hazmat.primitives.serialization.pkcs12 import load_key_and_certificates
+            with open(e_p12.get().strip(), "rb") as f:
+                datos_p12 = f.read()
+            clave_bytes = e_clave.get().strip().encode("utf-8")
+            load_key_and_certificates(datos_p12, clave_bytes)
+        except Exception:
+            lbl_resultado.configure(
+                text="❌ Clave incorrecta o certificado inválido",
+                text_color="#f38ba8"
+            )
             lbl_resultado.pack(pady=(8, 4))
             return
 
