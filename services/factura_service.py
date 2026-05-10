@@ -18,9 +18,8 @@ def obtener_config_sri() -> dict | None:
             "direccion_sucursal","codigo_establecimiento","punto_emision",
             "ambiente","tipo_emision","ruta_certificado","clave_certificado",
             "siguiente_secuencial","correo_remitente","smtp_host","smtp_port",
-            "smtp_usuario","smtp_clave","ruta_xmls","ruta_rides"]
+            "smtp_usuario","smtp_clave","ruta_xmls","ruta_rides","clave_sri"]
     return dict(zip(cols, fila))
-
 
 def guardar_factura(factura: dict, detalles: list) -> int:
     """Guarda factura y detalles en la BD. Devuelve el ID."""

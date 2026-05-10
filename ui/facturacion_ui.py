@@ -524,12 +524,14 @@ def abrir_config_sri(parent):
                   command=seleccionar_p12).pack(side="left", padx=(8, 0))
 
     e_clave = _campo("Clave del certificado", show="*")
+    e_clave_sri = _campo("Clave portal SRI (sri.gob.ec)", show="*")
 
     # ── CARGAR CONFIG EXISTENTE ──
     try:
         con = sqlite3.connect(DB)
         cfg = con.execute("""
-            SELECT ruc, razon_social, direccion_matriz, ruta_certificado, clave_certificado
+            SELECT ruc, razon_social, direccion_matriz, ruta_certificado, 
+                   clave_certificado, clave_sri
             FROM configuracion_sri WHERE id = 1
         """).fetchone()
         con.close()
@@ -539,6 +541,7 @@ def abrir_config_sri(parent):
             e_dir.insert(0, str(cfg[2] or ""))
             e_p12.insert(0, str(cfg[3] or ""))
             e_clave.insert(0, str(cfg[4] or ""))
+            e_clave_sri.insert(0, str(cfg[5] or ""))
     except Exception:
         pass
 
@@ -572,6 +575,10 @@ def abrir_config_sri(parent):
             lbl_resultado.configure(text="❌ Falta la clave del certificado", text_color="#f38ba8")
             lbl_resultado.pack(pady=(8, 4))
             return
+        if not e_clave_sri.get().strip():
+            lbl_resultado.configure(text="❌ Falta la clave del portal SRI", text_color="#f38ba8")
+            lbl_resultado.pack(pady=(8, 4))
+            return
 
         # ── Validar clave con cryptography ──
         lbl_resultado.configure(text="⏳ Validando certificado...", text_color="#f9e2af")
@@ -599,8 +606,8 @@ def abrir_config_sri(parent):
                 INSERT INTO configuracion_sri (
                     id, ruc, razon_social, direccion_matriz,
                     codigo_establecimiento, punto_emision, ambiente,
-                    ruta_certificado, clave_certificado
-                ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ruta_certificado, clave_certificado, clave_sri
+                ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     ruc=excluded.ruc,
                     razon_social=excluded.razon_social,
@@ -609,15 +616,18 @@ def abrir_config_sri(parent):
                     punto_emision=excluded.punto_emision,
                     ambiente=excluded.ambiente,
                     ruta_certificado=excluded.ruta_certificado,
-                    clave_certificado=excluded.clave_certificado
+                    clave_certificado=excluded.clave_certificado,
+                    clave_sri=excluded.clave_sri
             """, (
                 e_ruc.get().strip(),
                 e_razon.get().strip(),
                 e_dir.get().strip(),
                 "001", "001", 2,
                 e_p12.get().strip(),
-                e_clave.get().strip()
+                e_clave.get().strip(),
+                e_clave_sri.get().strip()
             ))
+    
             con.commit()
             con.close()
             lbl_resultado.configure(

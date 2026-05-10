@@ -1,6 +1,6 @@
-import hashlib
 import uuid
 from datetime import datetime
+from xml.sax.saxutils import escape
 
 
 def _clave_acceso(fecha: str, tipo_comprobante: str, ruc: str,
@@ -37,6 +37,8 @@ def _modulo11(clave: str) -> int:
         return 1
     return 11 - residuo
 
+def _txt(valor):
+    return escape(str(valor or "").strip())
 
 def generar_xml_factura(config: dict, factura: dict, detalles: list) -> str:
     """
@@ -89,7 +91,7 @@ def generar_xml_factura(config: dict, factura: dict, detalles: list) -> str:
             </detalle>"""
 
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
-<factura id="comprobante" version="1.1.0">
+<factura id="comprobante" version="2.1.0">
     <infoTributaria>
         <ambiente>{ambiente}</ambiente>
         <tipoEmision>{tipo_emision}</tipoEmision>
@@ -106,6 +108,7 @@ def generar_xml_factura(config: dict, factura: dict, detalles: list) -> str:
     <infoFactura>
         <fechaEmision>{fecha_fmt}</fechaEmision>
         <dirEstablecimiento>{config.get('direccion_sucursal', config.get('direccion_matriz', ''))}</dirEstablecimiento>
+        <obligadoContabilidad>{config.get('obligado_contabilidad', 'NO')}</obligadoContabilidad>
         <tipoIdentificacionComprador>{factura.get('tipo_identificacion', '05')}</tipoIdentificacionComprador>
         <razonSocialComprador>{factura['razon_social']}</razonSocialComprador>
         <identificacionComprador>{factura['identificacion']}</identificacionComprador>
@@ -141,8 +144,8 @@ def generar_xml_factura(config: dict, factura: dict, detalles: list) -> str:
     <detalles>{detalles_xml}
     </detalles>
     <infoAdicional>
-        <campoAdicional nombre="Telefono">{factura.get('telefono', '')}</campoAdicional>
-        <campoAdicional nombre="Email">{factura.get('correo', '')}</campoAdicional>
+        <campoAdicional nombre="Telefono">{factura.get('telefono') or 'N/A'}</campoAdicional>
+        <campoAdicional nombre="Email">{factura.get('correo') or 'N/A'}</campoAdicional>
     </infoAdicional>
 </factura>"""
 
