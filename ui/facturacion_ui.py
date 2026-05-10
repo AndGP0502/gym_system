@@ -17,7 +17,8 @@ DB_PATH = get_db_path()
 def abrir_ventana_facturacion(parent):
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Facturación Electrónica")
-    ventana.state("zoomed")
+    ventana.geometry("1400x850")
+    ventana.minsize(1200, 750)
     ventana.resizable(True, True)
     ventana.attributes("-topmost", True)
     ventana.after(300, lambda: ventana.attributes("-topmost", False))
@@ -471,7 +472,7 @@ def abrir_config_sri(parent):
 
     popup = ctk.CTkToplevel(parent)
     popup.title("Configuración SRI")
-    popup.geometry("650x750")
+    popup.geometry("650, 560")
     popup.resizable(False, False)
     popup.attributes("-topmost", True)
     popup.after(300, lambda: popup.attributes("-topmost", False))

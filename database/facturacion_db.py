@@ -34,6 +34,15 @@ def inicializar_tablas_facturacion():
         )
     """)
 
+    for col, tipo in [
+        ("clave_sri", "TEXT"),
+    ]:
+        try:
+            con.execute(f"ALTER TABLE configuracion_sri ADD COLUMN {col} {tipo}")
+        except sqlite3.OperationalError:
+            pass
+    con.commit()
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS facturas (
             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
