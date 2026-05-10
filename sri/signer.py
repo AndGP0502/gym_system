@@ -22,11 +22,16 @@ def firmar_xml(xml_content: str, ruta_p12: str, clave_p12: str) -> str:
             f.write(xml_content)
 
         # Extraer certificado
-        subprocess.run([
+        resultado = subprocess.run([
             "openssl", "pkcs12", "-in", p12_path,
             "-nokeys", "-clcerts", "-out", cert_path,
             "-passin", f"pass:{clave_p12}", "-legacy"
-        ], check=True, capture_output=True)
+        ], capture_output=True, text=True)
+
+        if resultado.returncode != 0:
+            print("ERROR OPENSSL CERTIFICADO:")
+            print(resultado.stderr)
+            raise Exception("No se pudo extraer el certificado del .p12")
 
         # Extraer llave privada
         subprocess.run([
@@ -61,10 +66,12 @@ def _firmar_con_python(xml_content, cert_path, key_path, out_path):
     from signxml import XMLSigner
     from lxml import etree
 
+    from signxml import methods
+
     signer = XMLSigner(
-        method=XMLSigner.default_method,
-        signature_algorithm="rsa-sha1",
-        digest_algorithm="sha1",
+        method=methods.enveloped,
+        signature_algorithm="rsa-sha256",
+        digest_algorithm="sha256",
     )
 
     with open(cert_path, "rb") as f:
