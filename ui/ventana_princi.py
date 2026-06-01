@@ -7,6 +7,7 @@ from ui.configuracion_ui import abrir_ventana_configuracion
 from ui.pagos_ui import abrir_ventana_pagos
 from ui.suscripciones_ui import abrir_ventana_suscripciones
 from ui.membresias_ui import abrir_ventana_membresias
+from ui.asistencia_ui import abrir_ventana_asistencia
 
 from modulos.clientes import contar_clientes, contar_clientes_filtro
 from modulos.membresias import contar_membresias
@@ -311,6 +312,11 @@ def iniciar_ventana():
     ttk.Button(
         sidebar, text="🟢 Clientes Activos", bootstyle="success-outline",
         command=lambda: abrir_ventana_activos(ventana), **boton_style
+    ).pack(pady=6)
+
+    ttk.Button(
+    sidebar, text="📋 Asistencia", bootstyle="info-outline",
+    command=lambda: abrir_ventana_asistencia(ventana), **boton_style
     ).pack(pady=6)
 
     ttk.Separator(sidebar).pack(fill="x", pady=20)

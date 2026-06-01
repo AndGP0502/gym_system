@@ -10,19 +10,20 @@ def _con():
     return sqlite3.connect(DB_PATH)
 
 
-def asegurar_columna_cedula():
+def asegurar_columnas():
     con = _con()
-    try:
-        con.execute("ALTER TABLE clientes ADD COLUMN cedula TEXT")
-        con.commit()
-    except sqlite3.OperationalError:
-        pass
+    for col in ["cedula TEXT", "correo TEXT"]:
+        try:
+            con.execute(f"ALTER TABLE clientes ADD COLUMN {col}")
+            con.commit()
+        except sqlite3.OperationalError:
+            pass
     con.close()
 
-asegurar_columna_cedula()
+asegurar_columnas()
 
 
-def agregar_cliente(nombre, cedula, telefono, fecha_registro):
+def agregar_cliente(nombre, cedula, telefono, fecha_registro, correo=""):
     if not nombre.strip():
         return "El nombre del cliente es obligatorio"
     if not cedula.strip():
@@ -45,8 +46,8 @@ def agregar_cliente(nombre, cedula, telefono, fecha_registro):
         nuevo_id += 1
 
     cur.execute(
-        "INSERT INTO clientes(id, nombre, cedula, telefono, fecha_registro) VALUES (?,?,?,?,?)",
-        (nuevo_id, nombre, cedula, telefono, fecha_registro)
+        "INSERT INTO clientes(id, nombre, cedula, telefono, fecha_registro, correo) VALUES (?,?,?,?,?,?)",
+        (nuevo_id, nombre, cedula, telefono, fecha_registro, correo)
     )
     con.commit()
     con.close()
@@ -56,7 +57,7 @@ def agregar_cliente(nombre, cedula, telefono, fecha_registro):
 def ver_clientes():
     con = _con()
     cur = con.cursor()
-    cur.execute("SELECT id, nombre, cedula, telefono, fecha_registro FROM clientes ORDER BY id")
+    cur.execute("SELECT id, nombre, cedula, telefono, fecha_registro, COALESCE(correo,'') FROM clientes ORDER BY id")
     clientes = cur.fetchall()
     con.close()
     return clientes
@@ -69,7 +70,7 @@ def eliminar_cliente(cliente_id):
     con.close()
 
 
-def editar_cliente(cliente_id, nombre, cedula, telefono, fecha):
+def editar_cliente(cliente_id, nombre, cedula, telefono, fecha, correo=""):
     con = _con()
     cur = con.cursor()
     cur.execute(
@@ -80,8 +81,8 @@ def editar_cliente(cliente_id, nombre, cedula, telefono, fecha):
         con.close()
         return "Ya existe otro cliente con esa cédula"
     cur.execute(
-        "UPDATE clientes SET nombre=?, cedula=?, telefono=?, fecha_registro=? WHERE id=?",
-        (nombre, cedula, telefono, fecha, cliente_id)
+        "UPDATE clientes SET nombre=?, cedula=?, telefono=?, fecha_registro=?, correo=? WHERE id=?",
+        (nombre, cedula, telefono, fecha, correo, cliente_id)
     )
     con.commit()
     con.close()
