@@ -295,8 +295,8 @@ def iniciar_ventana():
     ).pack(pady=6)
 
     ttk.Button(
-    sidebar, text="🧾 Facturación", bootstyle="primary-outline",
-    command=lambda: abrir_ventana_facturacion(ventana), **boton_style
+        sidebar, text="🧾 Facturación", bootstyle="primary-outline",
+        command=lambda: abrir_ventana_facturacion(ventana), **boton_style
     ).pack(pady=6)
 
     ttk.Button(

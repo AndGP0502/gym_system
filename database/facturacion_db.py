@@ -19,7 +19,7 @@ def inicializar_tablas_facturacion():
             direccion_sucursal  TEXT,
             codigo_establecimiento TEXT DEFAULT '001',
             punto_emision       TEXT DEFAULT '001',
-            ambiente            INTEGER DEFAULT 1,  -- 1=pruebas, 2=produccion
+            ambiente            INTEGER DEFAULT 1,
             tipo_emision        INTEGER DEFAULT 1,
             ruta_certificado    TEXT,
             clave_certificado   TEXT,
@@ -34,9 +34,19 @@ def inicializar_tablas_facturacion():
         )
     """)
 
-    for col, tipo in [
-        ("clave_sri", "TEXT"),
-    ]:
+    # Agregar columnas nuevas si no existen
+    nuevas_columnas = [
+        ("clave_sri",        "TEXT"),
+        ("apellido_paterno",  "TEXT"),
+        ("apellido_materno",  "TEXT"),
+        ("primer_nombre",     "TEXT"),
+        ("segundo_nombre",    "TEXT"),
+        ("correo_electronico","TEXT"),
+        ("telefono_conv",     "TEXT"),
+        ("telefono_celular",  "TEXT"),
+        ("direccion_domicilio","TEXT"),
+    ]
+    for col, tipo in nuevas_columnas:
         try:
             con.execute(f"ALTER TABLE configuracion_sri ADD COLUMN {col} {tipo}")
         except sqlite3.OperationalError:
@@ -52,32 +62,26 @@ def inicializar_tablas_facturacion():
             ambiente            INTEGER DEFAULT 2,
             fecha_emision       TEXT,
             fecha_autorizacion  TEXT,
-            -- Emisor
             ruc_emisor          TEXT,
             razon_social_emisor TEXT,
-            -- Receptor
             tipo_identificacion TEXT DEFAULT '05',
             identificacion      TEXT,
             razon_social        TEXT,
             correo              TEXT,
             telefono            TEXT,
             direccion           TEXT,
-            -- Totales
             subtotal_0          REAL DEFAULT 0,
             subtotal_15         REAL DEFAULT 0,
             subtotal_no_iva     REAL DEFAULT 0,
             descuento_total     REAL DEFAULT 0,
             iva_15              REAL DEFAULT 0,
             total               REAL DEFAULT 0,
-            -- Secuencial
             establecimiento     TEXT DEFAULT '001',
             punto_emision       TEXT DEFAULT '001',
             secuencial          TEXT,
-            -- Archivos
             ruta_xml            TEXT,
             ruta_xml_autorizado TEXT,
             ruta_ride           TEXT,
-            -- Referencia cliente
             cliente_id          INTEGER,
             observacion         TEXT,
             FOREIGN KEY(cliente_id) REFERENCES clientes(id)
@@ -103,7 +107,5 @@ def inicializar_tablas_facturacion():
 
     con.commit()
     con.close()
-    print("Tablas de facturación creadas.")
-
 
 inicializar_tablas_facturacion()
