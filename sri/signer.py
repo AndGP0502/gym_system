@@ -6,10 +6,8 @@ import tempfile
 def firmar_xml(xml_content: str, ruta_p12: str, clave_p12: str) -> str:
     """
     Firma el XML usando OpenSSL via subprocess.
-    Requiere que OpenSSL esté instalado en el sistema.
     Devuelve el XML firmado como string.
     """
-    # Extraer certificado y llave del .p12
     with tempfile.TemporaryDirectory() as tmpdir:
         p12_path  = ruta_p12
         cert_path = os.path.join(tmpdir, "cert.pem")
@@ -25,7 +23,7 @@ def firmar_xml(xml_content: str, ruta_p12: str, clave_p12: str) -> str:
         resultado = subprocess.run([
             "openssl", "pkcs12", "-in", p12_path,
             "-nokeys", "-clcerts", "-out", cert_path,
-            "-passin", f"pass:{clave_p12}", "-legacy"
+            "-passin", f"pass:{clave_p12}"
         ], capture_output=True, text=True)
 
         if resultado.returncode != 0:
@@ -34,39 +32,28 @@ def firmar_xml(xml_content: str, ruta_p12: str, clave_p12: str) -> str:
             raise Exception("No se pudo extraer el certificado del .p12")
 
         # Extraer llave privada
-        subprocess.run([
+        resultado2 = subprocess.run([
             "openssl", "pkcs12", "-in", p12_path,
             "-nocerts", "-nodes", "-out", key_path,
-            "-passin", f"pass:{clave_p12}", "-legacy"
-        ], check=True, capture_output=True)
+            "-passin", f"pass:{clave_p12}"
+        ], capture_output=True, text=True)
 
-        # Firmar usando xmlsec1 si está disponible, sino usar python-xmlsec
-        try:
-            _firmar_con_xmlsec1(xml_path, cert_path, key_path, out_path)
-        except Exception:
-            _firmar_con_python(xml_content, cert_path, key_path, out_path)
+        if resultado2.returncode != 0:
+            print("ERROR OPENSSL LLAVE:")
+            print(resultado2.stderr)
+            raise Exception("No se pudo extraer la llave privada del .p12")
+
+        # Firmar con signxml (Python)
+        _firmar_con_python(xml_content, cert_path, key_path, out_path)
 
         with open(out_path, "r", encoding="utf-8") as f:
             return f.read()
 
 
-def _firmar_con_xmlsec1(xml_path, cert_path, key_path, out_path):
-    """Firma usando xmlsec1 (más compatible con el SRI)."""
-    subprocess.run([
-        "xmlsec1", "--sign",
-        "--pkcs8-pem", key_path,
-        "--pwd", "",
-        "--output", out_path,
-        xml_path
-    ], check=True, capture_output=True)
-
-
 def _firmar_con_python(xml_content, cert_path, key_path, out_path):
-    """Fallback: firma usando la librería signxml de Python."""
-    from signxml import XMLSigner
+    """Firma usando la librería signxml de Python."""
+    from signxml import XMLSigner, methods
     from lxml import etree
-
-    from signxml import methods
 
     signer = XMLSigner(
         method=methods.enveloped,
@@ -79,7 +66,7 @@ def _firmar_con_python(xml_content, cert_path, key_path, out_path):
     with open(key_path, "rb") as f:
         key_pem = f.read()
 
-    root = etree.fromstring(xml_content.encode("utf-8"))
+    root   = etree.fromstring(xml_content.encode("utf-8"))
     signed = signer.sign(root, key=key_pem, cert=cert_pem)
 
     with open(out_path, "wb") as f:

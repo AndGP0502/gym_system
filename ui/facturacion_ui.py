@@ -24,6 +24,7 @@ def abrir_ventana_facturacion(parent):
     ventana.lift()
     ventana.focus_force()
     ventana.grab_set()
+    ventana.after(500, lambda: ventana.focus_force())
 
     canvas_p = tk.Canvas(ventana, highlightthickness=0, bg="#1e1e2e")
     sb_p     = ttk.Scrollbar(ventana, orient="vertical", command=canvas_p.yview)
@@ -36,7 +37,7 @@ def abrir_ventana_facturacion(parent):
 
     scroll.bind("<Configure>", lambda e: canvas_p.configure(scrollregion=canvas_p.bbox("all")))
     canvas_p.bind("<Configure>", lambda e: canvas_p.itemconfig(sid, width=e.width))
-    canvas_p.bind("<MouseWheel>", lambda e: canvas_p.yview_scroll(int(-1*(e.delta/120)*2), "units"))
+    canvas_p.bind("<MouseWheel>", lambda e: canvas_p.yview_scroll(int(-1*(e.delta/120)), "units"))
 
     # ── HEADER ────────────────────────────────────────────────────────────────
     header = ctk.CTkFrame(scroll, corner_radius=16, fg_color="#181825")
@@ -675,19 +676,9 @@ def abrir_ventana_facturacion(parent):
                 estado, f[5] or "—"
             ), tags=(estado,))
 
-    def _propagar_scroll(widget):
-        try:
-            widget.bind("<MouseWheel>", lambda e: canvas_p.yview_scroll(
-                int(-1 * (e.delta / 120) * 2), "units"))
-        except Exception:
-            pass
-        for hijo in widget.winfo_children():
-            _propagar_scroll(hijo)
-
-    ventana.after(200, lambda: _propagar_scroll(scroll))
-
     cargar_historial()
     actualizar_cards()
+
 
 # ── CONFIGURACIÓN SRI ─────────────────────────────────────────────────────────
 
@@ -697,7 +688,7 @@ def abrir_config_sri(parent):
 
     popup = ctk.CTkToplevel(parent)
     popup.title("Configuración SRI")
-    popup.geometry("700x820")
+    popup.geometry("700x700")
     popup.resizable(False, True)
     popup.attributes("-topmost", True)
     popup.after(300, lambda: popup.attributes("-topmost", False))
@@ -705,13 +696,25 @@ def abrir_config_sri(parent):
     popup.focus_force()
     popup.grab_set()
 
-    scroll = ctk.CTkScrollableFrame(popup, fg_color="#1e1e2e", width=680, height=800)
+    popup.update_idletasks()
+    w = popup.winfo_width()
+    h = popup.winfo_height()
+    x = (popup.winfo_screenwidth() // 2) - (w // 2)
+    y = max(0, (popup.winfo_screenheight() // 2) - (h // 2) - 50)
+    popup.geometry(f"{w}x{h}+{x}+{y}")
+
+    scroll = ctk.CTkScrollableFrame(popup, fg_color="#1e1e2e", width=680, height=680)
     scroll.pack(fill="both", expand=True, padx=10, pady=10)
 
     ctk.CTkLabel(scroll, text="⚙ Configuración SRI",
                  font=("Segoe UI", 24, "bold"), text_color="#cba6f7").pack(pady=(25, 4))
     ctk.CTkLabel(scroll, text="Datos del emisor y certificado digital",
-                 font=("Segoe UI", 12), text_color="#6c7086").pack(pady=(0, 16))
+                 font=("Segoe UI", 12), text_color="#6c7086").pack(pady=(0, 8))
+
+    # Notificación fija arriba
+    lbl_resultado = ctk.CTkLabel(scroll, text="", font=("Segoe UI", 12, "bold"),
+                                  height=36, corner_radius=8, fg_color="transparent")
+    lbl_resultado.pack(fill="x", padx=25, pady=(0, 8))
 
     frame = ctk.CTkFrame(scroll, fg_color="#181825", corner_radius=16)
     frame.pack(fill="x", padx=25, pady=5)
@@ -740,23 +743,19 @@ def abrir_config_sri(parent):
         e2.pack(side="left", fill="x", expand=True, padx=(4, 0))
         return e1, e2
 
-    # ── DATOS DE IDENTIDAD ────────────────────────────────────────────────────
     _seccion("📋 Datos de Identidad")
     e_ap_pat, e_ap_mat = _fila2("Apellido Paterno*", "Apellido Materno", "Ej: GARCÍA", "Ej: LÓPEZ")
     e_p_nom,  e_s_nom  = _fila2("Primer Nombre*",    "Segundo Nombre",   "Ej: JUAN",   "Ej: CARLOS")
 
-    # ── DATOS DE CONTACTO ─────────────────────────────────────────────────────
     _seccion("📞 Datos de Contacto")
     e_correo_e = _campo("Correo Electrónico*", "ejemplo@correo.com")
     e_tel_conv, e_tel_cel = _fila2("Telf. Convencional", "Teléfono Celular*", "022123456", "0991234567")
     e_dir_dom  = _campo("Dirección Domicilio*", "Calle, número, ciudad")
 
-    # ── DATOS DEL NEGOCIO ─────────────────────────────────────────────────────
     _seccion("🏢 Datos del Negocio")
     e_ruc   = _campo("RUC del emisor*",  "Ej: 1714518964001")
     e_razon = _campo("Razón Social*",    "Nombre del gimnasio o contribuyente")
 
-    # ── CERTIFICADO DIGITAL ───────────────────────────────────────────────────
     _seccion("🔐 Certificado Digital")
     ctk.CTkLabel(frame, text="Archivo certificado (.p12)*", font=("Segoe UI", 11),
                  text_color="#cdd6f4", anchor="w").pack(fill="x", padx=22, pady=(8, 2))
@@ -781,7 +780,6 @@ def abrir_config_sri(parent):
     e_clave     = _campo("Contraseña del certificado*", show="*")
     e_clave_sri = _campo("Clave portal SRI (sri.gob.ec)*", show="*")
 
-    # ── CARGAR CONFIG EXISTENTE ───────────────────────────────────────────────
     try:
         con = sqlite3.connect(DB)
         cfg = con.execute("""
@@ -807,31 +805,26 @@ def abrir_config_sri(parent):
     except Exception:
         pass
 
-    lbl_resultado = ctk.CTkLabel(frame, text="", font=("Segoe UI", 13, "bold"))
+    def _mostrar(texto, color):
+        lbl_resultado.configure(text=texto, text_color=color, fg_color="#2a2a3a")
+        scroll.after(10, lambda: scroll._parent_canvas.yview_moveto(0))
 
     def guardar_config():
-        lbl_resultado.configure(text="")
+        _mostrar("", "white")
         if not e_ruc.get().strip():
-            lbl_resultado.configure(text="❌ Falta el RUC del emisor", text_color="#f38ba8")
-            lbl_resultado.pack(pady=(8, 4)); return
+            _mostrar("❌ Falta el RUC del emisor", "#f38ba8"); return
         if len(e_ruc.get().strip()) != 13:
-            lbl_resultado.configure(text="❌ El RUC debe tener 13 dígitos", text_color="#f38ba8")
-            lbl_resultado.pack(pady=(8, 4)); return
+            _mostrar("❌ El RUC debe tener 13 dígitos", "#f38ba8"); return
         if not e_razon.get().strip():
-            lbl_resultado.configure(text="❌ Falta la razón social", text_color="#f38ba8")
-            lbl_resultado.pack(pady=(8, 4)); return
+            _mostrar("❌ Falta la razón social", "#f38ba8"); return
         if not e_p12.get().strip() or not os.path.exists(e_p12.get().strip()):
-            lbl_resultado.configure(text="❌ Selecciona un archivo .p12 válido", text_color="#f38ba8")
-            lbl_resultado.pack(pady=(8, 4)); return
+            _mostrar("❌ Selecciona un archivo .p12 válido", "#f38ba8"); return
         if not e_clave.get().strip():
-            lbl_resultado.configure(text="❌ Falta la clave del certificado", text_color="#f38ba8")
-            lbl_resultado.pack(pady=(8, 4)); return
+            _mostrar("❌ Falta la clave del certificado", "#f38ba8"); return
         if not e_clave_sri.get().strip():
-            lbl_resultado.configure(text="❌ Falta la clave del portal SRI", text_color="#f38ba8")
-            lbl_resultado.pack(pady=(8, 4)); return
+            _mostrar("❌ Falta la clave del portal SRI", "#f38ba8"); return
 
-        lbl_resultado.configure(text="⏳ Validando certificado...", text_color="#f9e2af")
-        lbl_resultado.pack(pady=(8, 4))
+        _mostrar("⏳ Validando certificado...", "#f9e2af")
         popup.update()
 
         try:
@@ -840,8 +833,7 @@ def abrir_config_sri(parent):
                 datos_p12 = fp.read()
             load_key_and_certificates(datos_p12, e_clave.get().strip().encode("utf-8"))
         except Exception:
-            lbl_resultado.configure(text="❌ Clave incorrecta o certificado inválido", text_color="#f38ba8")
-            lbl_resultado.pack(pady=(8, 4)); return
+            _mostrar("❌ Clave incorrecta o certificado inválido", "#f38ba8"); return
 
         try:
             con = sqlite3.connect(DB)
@@ -881,15 +873,11 @@ def abrir_config_sri(parent):
                 e_tel_cel.get().strip(), e_dir_dom.get().strip()
             ))
             con.commit(); con.close()
-            lbl_resultado.configure(text="✅ Configuración guardada correctamente", text_color="#a6e3a1")
-            lbl_resultado.pack(pady=(8, 4))
+            _mostrar("✅ Configuración guardada correctamente", "#a6e3a1")
         except Exception as ex:
-            lbl_resultado.configure(text=f"❌ Error al guardar: {ex}", text_color="#f38ba8")
-            lbl_resultado.pack(pady=(8, 4))
+            _mostrar(f"❌ Error al guardar: {ex}", "#f38ba8")
 
     ctk.CTkButton(frame, text="💾 Guardar configuración",
                   height=46, fg_color="#1a4731", hover_color="#166534",
                   font=("Segoe UI", 14, "bold"),
-                  command=guardar_config).pack(fill="x", padx=22, pady=(20, 10))
-
-    lbl_resultado.pack(pady=(0, 16))
+                  command=guardar_config).pack(fill="x", padx=22, pady=(20, 16))
