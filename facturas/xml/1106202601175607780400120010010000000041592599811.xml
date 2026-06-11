@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<factura id="comprobante" version="2.1.0">
+    <infoTributaria>
+        <ambiente>2</ambiente>
+        <tipoEmision>1</tipoEmision>
+        <razonSocial>Gym Sytem</razonSocial>
+        <nombreComercial>None</nombreComercial>
+        <ruc>1756077804001</ruc>
+        <claveAcceso>1106202601175607780400120010010000000041592599811</claveAcceso>
+        <codDoc>01</codDoc>
+        <estab>001</estab>
+        <ptoEmi>001</ptoEmi>
+        <secuencial>000000004</secuencial>
+        <dirMatriz></dirMatriz>
+    </infoTributaria>
+    <infoFactura>
+        <fechaEmision>11/06/2026</fechaEmision>
+        <dirEstablecimiento>None</dirEstablecimiento>
+        <obligadoContabilidad>NO</obligadoContabilidad>
+        <tipoIdentificacionComprador>05</tipoIdentificacionComprador>
+        <razonSocialComprador>dennys chanchicocha</razonSocialComprador>
+        <identificacionComprador>1756077804</identificacionComprador>
+        <direccionComprador>N/A</direccionComprador>
+        <totalSinImpuestos>10.00</totalSinImpuestos>
+        <totalDescuento>0.00</totalDescuento>
+        <totalConImpuestos>
+            <totalImpuesto>
+                <codigo>2</codigo>
+                <codigoPorcentaje>0</codigoPorcentaje>
+                <baseImponible>10.00</baseImponible>
+                <valor>0.00</valor>
+            </totalImpuesto>
+            <totalImpuesto>
+                <codigo>2</codigo>
+                <codigoPorcentaje>4</codigoPorcentaje>
+                <baseImponible>0.00</baseImponible>
+                <valor>0.00</valor>
+            </totalImpuesto>
+        </totalConImpuestos>
+        <propina>0.00</propina>
+        <importeTotal>10.00</importeTotal>
+        <moneda>DOLAR</moneda>
+        <pagos>
+            <pago>
+                <formaPago>01</formaPago>
+                <total>10.00</total>
+                <plazo>0</plazo>
+                <unidadTiempo>dias</unidadTiempo>
+            </pago>
+        </pagos>
+    </infoFactura>
+    <detalles>
+            <detalle>
+                <codigoPrincipal>SRV</codigoPrincipal>
+                <descripcion>gimnasio</descripcion>
+                <cantidad>1.00</cantidad>
+                <precioUnitario>10.00</precioUnitario>
+                <descuento>0.00</descuento>
+                <precioTotalSinImpuesto>10.00</precioTotalSinImpuesto>
+                <impuestos>
+                    <impuesto>
+                        <codigo>2</codigo>
+                        <codigoPorcentaje>0</codigoPorcentaje>
+                        <tarifa>0.00</tarifa>
+                        <baseImponible>10.00</baseImponible>
+                        <valor>0.00</valor>
+                    </impuesto>
+                </impuestos>
+            </detalle>
+    </detalles>
+    <infoAdicional>
+        <campoAdicional nombre="Telefono">0980844726</campoAdicional>
+        <campoAdicional nombre="Email">chanchicochafernado2000@gmail.com</campoAdicional>
+    </infoAdicional>
+</factura>

@@ -1,73 +1,80 @@
+"""
+Firma el XML de facturas electrónicas para el SRI Ecuador.
+Usa Java (FirmadorSRI.class) para firmar — compatible con .p12 del Banco Central.
+"""
+
 import subprocess
 import os
 import tempfile
+import sys
+
+
+def _get_java_signer_dir() -> str:
+    """Obtiene la ruta al directorio java_signer."""
+    if getattr(sys, 'frozen', False):
+        # Modo .exe (PyInstaller)
+        base = os.path.dirname(sys.executable)
+    else:
+        # Modo desarrollo
+        base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, "java_signer")
 
 
 def firmar_xml(xml_content: str, ruta_p12: str, clave_p12: str) -> str:
     """
-    Firma el XML usando OpenSSL via subprocess.
+    Firma el XML usando Java (FirmadorSRI).
     Devuelve el XML firmado como string.
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        p12_path  = ruta_p12
-        cert_path = os.path.join(tmpdir, "cert.pem")
-        key_path  = os.path.join(tmpdir, "key.pem")
-        xml_path  = os.path.join(tmpdir, "factura.xml")
-        out_path  = os.path.join(tmpdir, "factura_firmada.xml")
+    java_signer_dir = _get_java_signer_dir()
+    firmador_class  = os.path.join(java_signer_dir, "FirmadorSRI.class")
 
-        # Escribir XML sin firmar
-        with open(xml_path, "w", encoding="utf-8") as f:
-            f.write(xml_content)
+    if not os.path.exists(firmador_class):
+        raise Exception(
+            f"No se encontró FirmadorSRI.class en: {java_signer_dir}\n"
+            "Copia la carpeta java_signer a sri/"
+        )
 
-        # Extraer certificado
-        resultado = subprocess.run([
-            "openssl", "pkcs12", "-in", p12_path,
-            "-nokeys", "-clcerts", "-out", cert_path,
-            "-passin", f"pass:{clave_p12}"
-        ], capture_output=True, text=True)
+    # Crear archivos temporales
+    with tempfile.NamedTemporaryFile(mode='wb', suffix='.xml', delete=False) as f:
+        f.write(xml_content.encode('utf-8'))
+        xml_temp = f.name
 
-        if resultado.returncode != 0:
-            print("ERROR OPENSSL CERTIFICADO:")
-            print(resultado.stderr)
-            raise Exception("No se pudo extraer el certificado del .p12")
+    xml_out = xml_temp + "_firmado.xml"
 
-        # Extraer llave privada
-        resultado2 = subprocess.run([
-            "openssl", "pkcs12", "-in", p12_path,
-            "-nocerts", "-nodes", "-out", key_path,
-            "-passin", f"pass:{clave_p12}"
-        ], capture_output=True, text=True)
+    try:
+        result = subprocess.run(
+            [
+                "java",
+                "-Dfile.encoding=UTF-8",
+                "-cp", java_signer_dir,
+                "FirmadorSRI",
+                xml_temp,
+                ruta_p12,
+                clave_p12,
+                xml_out
+            ],
+            capture_output=True,
+            timeout=30
+        )
 
-        if resultado2.returncode != 0:
-            print("ERROR OPENSSL LLAVE:")
-            print(resultado2.stderr)
-            raise Exception("No se pudo extraer la llave privada del .p12")
+        stderr = result.stderr.decode('utf-8', errors='replace') if result.stderr else ''
 
-        # Firmar con signxml (Python)
-        _firmar_con_python(xml_content, cert_path, key_path, out_path)
+        if result.returncode != 0:
+            raise Exception(f"Error Java al firmar: {stderr}")
 
-        with open(out_path, "r", encoding="utf-8") as f:
-            return f.read()
+        if os.path.exists(xml_out):
+            with open(xml_out, 'r', encoding='utf-8') as f:
+                xml_firmado = f.read().strip()
+        else:
+            xml_firmado = result.stdout.decode('utf-8', errors='replace').strip()
 
+        if not xml_firmado or "<Signature" not in xml_firmado:
+            raise Exception(f"Java no generó firma válida. Stderr: {stderr[:300]}")
 
-def _firmar_con_python(xml_content, cert_path, key_path, out_path):
-    """Firma usando la librería signxml de Python."""
-    from signxml import XMLSigner, methods
-    from lxml import etree
+        return xml_firmado
 
-    signer = XMLSigner(
-        method=methods.enveloped,
-        signature_algorithm="rsa-sha256",
-        digest_algorithm="sha256",
-    )
-
-    with open(cert_path, "rb") as f:
-        cert_pem = f.read()
-    with open(key_path, "rb") as f:
-        key_pem = f.read()
-
-    root   = etree.fromstring(xml_content.encode("utf-8"))
-    signed = signer.sign(root, key=key_pem, cert=cert_pem)
-
-    with open(out_path, "wb") as f:
-        f.write(etree.tostring(signed, pretty_print=True))
+    finally:
+        if os.path.exists(xml_temp):
+            os.unlink(xml_temp)
+        if os.path.exists(xml_out):
+            os.unlink(xml_out)

@@ -706,8 +706,14 @@ def abrir_config_sri(parent):
     scroll = ctk.CTkScrollableFrame(popup, fg_color="#1e1e2e", width=680, height=680)
     scroll.pack(fill="both", expand=True, padx=10, pady=10)
 
-    ctk.CTkLabel(scroll, text="⚙ Configuración SRI",
-                 font=("Segoe UI", 24, "bold"), text_color="#cba6f7").pack(pady=(25, 4))
+    frame_titulo = ctk.CTkFrame(scroll, fg_color="transparent")
+    frame_titulo.pack(pady=(25, 4))
+    ctk.CTkLabel(frame_titulo, text="⚙ Configuración SRI",
+                 font=("Segoe UI", 24, "bold"), text_color="#cba6f7").pack(side="left", padx=(0, 12))
+    ctk.CTkButton(frame_titulo, text="🧹 Limpiar", width=90, height=32,
+                  fg_color="#374151", hover_color="#4b5563",
+                  font=("Segoe UI", 11, "bold"),
+                  command=lambda: limpiar_campos()).pack(side="left")
     ctk.CTkLabel(scroll, text="Datos del emisor y certificado digital",
                  font=("Segoe UI", 12), text_color="#6c7086").pack(pady=(0, 8))
 
@@ -881,3 +887,19 @@ def abrir_config_sri(parent):
                   height=46, fg_color="#1a4731", hover_color="#166534",
                   font=("Segoe UI", 14, "bold"),
                   command=guardar_config).pack(fill="x", padx=22, pady=(20, 16))
+    
+    def limpiar_campos():
+        if not messagebox.askyesno("Confirmar", "¿Seguro que quieres borrar toda la configuración SRI?", parent=popup):
+            return
+        try:
+            con = sqlite3.connect(DB)
+            con.execute("DELETE FROM configuracion_sri WHERE id=1")
+            con.commit(); con.close()
+        except Exception as ex:
+            _mostrar(f"❌ Error: {ex}", "#f38ba8")
+            return
+        for entry in [e_ruc, e_razon, e_p12, e_clave, e_clave_sri,
+                      e_ap_pat, e_ap_mat, e_p_nom, e_s_nom,
+                      e_correo_e, e_tel_conv, e_tel_cel, e_dir_dom]:
+            entry.delete(0, "end")
+        _mostrar("✅ Configuración borrada correctamente", "#a6e3a1")
