@@ -50,11 +50,11 @@ def generar_xml_factura(config, factura, detalles):
     if subtotal_0 > 0:
         total_impuestos_xml += f"<totalImpuesto><codigo>2</codigo><codigoPorcentaje>0</codigoPorcentaje><baseImponible>{subtotal_0:.2f}</baseImponible><valor>0.00</valor></totalImpuesto>"
     if subtotal_15 > 0:
-        total_impuestos_xml += f"<totalImpuesto><codigo>2</codigo><codigoPorcentaje>5</codigoPorcentaje><baseImponible>{subtotal_15:.2f}</baseImponible><tarifa>15.00</tarifa><valor>{iva_15:.2f}</valor></totalImpuesto>"
+        total_impuestos_xml += f"<totalImpuesto><codigo>2</codigo><codigoPorcentaje>4</codigoPorcentaje><baseImponible>{subtotal_15:.2f}</baseImponible><tarifa>15.00</tarifa><valor>{iva_15:.2f}</valor></totalImpuesto>"
 
     detalles_xml = ""
     for d in detalles:
-        cod_iva = "5" if d["porcentaje_iva"] == 15 else "0"
+        cod_iva = "4" if d["porcentaje_iva"] == 15 else "0"
         detalles_xml += (
             f"<detalle>"
             f"<codigoPrincipal>SRV</codigoPrincipal>"
