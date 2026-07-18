@@ -23,7 +23,8 @@ from modulos.suscripciones import (
     clientes_por_vencer,
     ver_suscripciones_completas,
     eliminar_suscripcion,
-    ingresos_por_mes
+    ingresos_por_mes,
+    buscar_suscripciones
 )
 
 def leer_clave() -> str:
@@ -44,6 +45,26 @@ def guardar_clave(nueva_clave: str):
     config["clave_emergencia"] = nueva_clave
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4, ensure_ascii=False)
+
+def estado_suscripcion(vence, pendiente) -> tuple[str, str]:
+    """
+    Calcula el estado real de una suscripcion considerando la fecha de vencimiento.
+    Devuelve (texto_estado, tag_color):
+      - "Vencido"   (rojo)     si fecha_vencimiento < hoy, sin importar si esta pagada
+      - "Pendiente" (amarillo) si aun esta vigente pero debe dinero
+      - "Activo"    (verde)    si esta vigente y sin deuda
+    """
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    if vence and str(vence) < hoy:
+        return "Vencido", "vencido"
+    try:
+        debe = float(pendiente) > 0
+    except (TypeError, ValueError):
+        debe = False
+    if debe:
+        return "Pendiente", "pendiente"
+    return "Activo", "activo"
+
 
 def validar_fecha(fecha_str: str) -> str | None:
     fecha_str = fecha_str.strip()
@@ -170,6 +191,47 @@ def abrir_ventana_suscripciones(parent):
     ctk.CTkLabel(frame_tabla, text="Lista de Suscripciones",
                  font=("Segoe UI", 20, "bold")).pack(anchor="w", padx=20, pady=(15, 5))
 
+    # ---------- BUSCADOR (cedula o nombre) ----------
+    frame_buscador = ctk.CTkFrame(frame_tabla, fg_color="transparent")
+    frame_buscador.pack(fill="x", padx=20, pady=(0, 10))
+
+    ctk.CTkLabel(frame_buscador, text="Buscar cliente (cedula o nombre):",
+                 font=("Segoe UI", 13)).pack(side="left", padx=(0, 8))
+    entry_buscar = ctk.CTkEntry(frame_buscador, width=260,
+                                 placeholder_text="Ej: 1712345678 o Juan Perez")
+    entry_buscar.pack(side="left", padx=(0, 8))
+
+    def buscar_clientes(event=None):
+        texto = entry_buscar.get().strip()
+        if not texto:
+            recargar_tabla(); traer_al_frente(); return
+        limpiar_tabla()
+        resultados = buscar_suscripciones(texto)
+        if not resultados:
+            messagebox.showinfo("Sin resultados",
+                "No se encontraron clientes con esa cedula o nombre.", parent=ventana)
+            traer_al_frente(); return
+        for id_sus, nombre, plan, inicio, vence, pagado, pendiente in resultados:
+            # FIX: el estado ahora considera la fecha de vencimiento
+            estado, tag = estado_suscripcion(vence, pendiente)
+            tabla.insert("", "end", iid=str(id_sus), values=(
+                nombre, plan, inicio, vence,
+                f"${pagado:.2f}", f"${pendiente:.2f}", estado
+            ), tags=(tag,))
+        traer_al_frente()
+
+    def limpiar_busqueda():
+        entry_buscar.delete(0, ctk.END)
+        recargar_tabla()
+        traer_al_frente()
+
+    entry_buscar.bind("<Return>", buscar_clientes)
+    ctk.CTkButton(frame_buscador, text="Buscar", width=100, height=32,
+                  command=buscar_clientes).pack(side="left", padx=(0, 8))
+    ctk.CTkButton(frame_buscador, text="Limpiar", width=100, height=32,
+                  fg_color="#2A2A2A", hover_color="#3A3A3A",
+                  command=limpiar_busqueda).pack(side="left")
+
     tabla_container = ctk.CTkFrame(frame_tabla)
     tabla_container.pack(fill="both", expand=True, padx=15, pady=10)
 
@@ -177,16 +239,15 @@ def abrir_ventana_suscripciones(parent):
     style.configure("Sus.Treeview",         font=("Segoe UI", 11), rowheight=34)
     style.configure("Sus.Treeview.Heading", font=("Segoe UI", 11, "bold"))
 
-    columnas = ("ID", "Cliente", "Plan", "Inicio", "Vence", "Pagado", "Pendiente", "Estado")
+    columnas = ("Cliente", "Plan", "Inicio", "Vence", "Pagado", "Pendiente", "Estado")
     tabla = ttk.Treeview(tabla_container, columns=columnas, show="headings",
                          height=10, style="Sus.Treeview")
 
     for col in columnas:
         tabla.heading(col, text=col)
 
-    tabla.column("ID",        anchor="center", width=50,  minwidth=40)
-    tabla.column("Cliente",   anchor="w",      width=180, minwidth=80)
-    tabla.column("Plan",      anchor="w",      width=150, minwidth=80)
+    tabla.column("Cliente",   anchor="w",      width=200, minwidth=80)
+    tabla.column("Plan",      anchor="w",      width=160, minwidth=80)
     tabla.column("Inicio",    anchor="center", width=110, minwidth=80)
     tabla.column("Vence",     anchor="center", width=110, minwidth=80)
     tabla.column("Pagado",    anchor="center", width=100, minwidth=60)
@@ -199,15 +260,24 @@ def abrir_ventana_suscripciones(parent):
     sb_tabla.pack(side="right", fill="y")
     _scroll_local_treeview(tabla)
 
+    # Colores segun el estado real de la suscripcion
+    tabla.tag_configure("activo",    background="#b6f2c6", foreground="#0f5132")
+    tabla.tag_configure("pendiente", background="#fff3cd", foreground="#664d03")
+    tabla.tag_configure("vencido",   background="#f8d7da", foreground="#842029")
+
     def recargar_tabla():
         for fila in tabla.get_children():
             tabla.delete(fila)
         for id_sus, nombre, plan, inicio, vence, pagado, pendiente in ver_suscripciones_completas():
-            estado = "Activo" if float(pendiente) == 0 else "Pendiente"
-            tabla.insert("", "end", values=(
-                id_sus, nombre, plan, inicio, vence,
+            # FIX: el estado ahora considera la fecha de vencimiento.
+            # Antes solo miraba la deuda, por lo que un cliente vencido
+            # pero sin deuda seguia apareciendo como "Activo".
+            estado, tag = estado_suscripcion(vence, pendiente)
+            # El ID ya no se muestra: se guarda como iid oculto de la fila
+            tabla.insert("", "end", iid=str(id_sus), values=(
+                nombre, plan, inicio, vence,
                 f"${pagado:.2f}", f"${pendiente:.2f}", estado
-            ))
+            ), tags=(tag,))
 
     recargar_tabla()
 
@@ -222,34 +292,50 @@ def abrir_ventana_suscripciones(parent):
     def estado_gimnasio():
         limpiar_tabla()
         for id_sus, nombre, plan, vence, pagado, deuda in ver_estado_gimnasio():
-            estado = "Activo" if deuda == 0 else "Pendiente"
-            tabla.insert("", "end", values=(id_sus, nombre, plan, "", vence, pagado, "", estado))
+            # FIX: mismo criterio que la tabla principal — considera vencimiento
+            estado, tag = estado_suscripcion(vence, deuda)
+            tabla.insert("", "end", iid=str(id_sus),
+                         values=(nombre, plan, "", vence, pagado, "", estado),
+                         tags=(tag,))
 
     def ver_vencidos():
         limpiar_tabla()
         for nombre, fecha in ver_clientes_vencidos():
-            tabla.insert("", "end", values=("", nombre, "", "", fecha, "", "", "Vencido"))
+            tabla.insert("", "end", values=(nombre, "", "", fecha, "", "", "Vencido"),
+                         tags=("vencido",))
 
     def ver_dias():
         limpiar_tabla()
         for nombre, plan, estado in ver_dias_restantes():
-            tabla.insert("", "end", values=("", nombre, plan, "", "", "", "", estado))
+            tag = "vencido" if estado == "VENCIDO" else "activo"
+            tabla.insert("", "end", values=(nombre, plan, "", "", "", "", estado),
+                         tags=(tag,))
 
-    def eliminar_seleccionada():
+    def _id_de_seleccion():
+        """Devuelve el ID oculto (iid) de la fila seleccionada, o None si la fila no tiene ID valido."""
         seleccion = tabla.selection()
         if not seleccion:
+            return None, None
+        try:
+            id_sus = int(seleccion[0])
+        except (ValueError, TypeError):
+            id_sus = None
+        nombre = tabla.item(seleccion[0])["values"][0]
+        return id_sus, nombre
+
+    def eliminar_seleccionada():
+        if not tabla.selection():
             messagebox.showwarning("Sin seleccion", "Selecciona una suscripcion de la tabla primero.", parent=ventana)
             traer_al_frente(); return
-        fila   = tabla.item(seleccion[0])["values"]
-        id_sus = fila[0]; nombre = fila[1]
+        id_sus, nombre = _id_de_seleccion()
         if not id_sus:
             messagebox.showwarning("Sin ID", "Esta fila no tiene un ID valido para eliminar.", parent=ventana)
             traer_al_frente(); return
-        if messagebox.askyesno("Confirmar", f"Eliminar suscripcion #{id_sus} de '{nombre}'?", parent=ventana):
+        if messagebox.askyesno("Confirmar", f"Eliminar la suscripcion de '{nombre}'?", parent=ventana):
             eliminar_suscripcion(int(id_sus))
             recargar_tabla()
             cargar_grafico_ingresos()
-            messagebox.showinfo("Eliminado", f"Suscripcion #{id_sus} eliminada correctamente.", parent=ventana)
+            messagebox.showinfo("Eliminado", f"Suscripcion de '{nombre}' eliminada correctamente.", parent=ventana)
         traer_al_frente()
 
     def abrir_popup_agregar():
@@ -307,13 +393,12 @@ def abrir_ventana_suscripciones(parent):
                       hover_color="#145214", command=guardar).pack(pady=15)
 
     def abrir_popup_editar_fechas():
-        seleccion = tabla.selection()
-        if not seleccion:
+        if not tabla.selection():
             messagebox.showwarning("Sin seleccion", "Selecciona una suscripcion de la tabla primero.", parent=ventana)
             traer_al_frente(); return
-        fila = tabla.item(seleccion[0])["values"]
-        id_sus = fila[0]; nombre = fila[1]
-        inicio_actual = fila[3]; vence_actual = fila[4]
+        id_sus, nombre = _id_de_seleccion()
+        fila = tabla.item(tabla.selection()[0])["values"]
+        inicio_actual = fila[2]; vence_actual = fila[3]
         if not id_sus:
             messagebox.showwarning("Sin ID", "Esta fila no tiene ID valido.", parent=ventana)
             traer_al_frente(); return
@@ -325,7 +410,7 @@ def abrir_ventana_suscripciones(parent):
         popup.after(300, lambda: popup.attributes("-topmost", False))
         popup.lift(); popup.focus_force()
 
-        ctk.CTkLabel(popup, text=f"Editar fechas — Suscripcion #{id_sus}",
+        ctk.CTkLabel(popup, text="Editar fechas de suscripcion",
                      font=("Segoe UI", 16, "bold")).pack(pady=(20, 4))
         ctk.CTkLabel(popup, text=nombre,
                      font=("Segoe UI", 13), text_color="gray70").pack(pady=(0, 14))

@@ -225,6 +225,63 @@ def ver_suscripciones_completas():
     return datos
 
 
+# -------- BUSCAR SUSCRIPCIONES POR CEDULA O NOMBRE --------
+def buscar_suscripciones(texto):
+    """Busca suscripciones filtrando por cedula o nombre del cliente (busqueda parcial, no distingue mayus/minus)."""
+    con = _con()
+    cur = con.cursor()
+    like = f"%{texto.strip()}%"
+    cur.execute("""
+        SELECT suscripciones.id,
+               clientes.nombre,
+               membresias.nombre_plan,
+               suscripciones.fecha_inicio,
+               suscripciones.fecha_vencimiento,
+               suscripciones.pagado,
+               suscripciones.pendiente
+        FROM suscripciones
+        JOIN clientes   ON suscripciones.cliente_id   = clientes.id
+        JOIN membresias ON suscripciones.membresia_id = membresias.id
+        WHERE clientes.nombre  LIKE ? COLLATE NOCASE
+           OR clientes.cedula  LIKE ? COLLATE NOCASE
+        ORDER BY suscripciones.id
+    """, (like, like))
+    datos = cur.fetchall()
+    con.close()
+    return datos
+
+
+# -------- CLIENTES CADUCADOS CON DETALLE --------
+def ver_clientes_caducados_detalle():
+    """
+    Retorna todas las suscripciones caducadas (fecha_vencimiento < hoy)
+    con detalle completo para el modulo de clientes caducados.
+    Incluye cedula y telefono, sin exponer IDs.
+    """
+    con = _con()
+    cur = con.cursor()
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    cur.execute("""
+        SELECT COALESCE(clientes.cedula, ''),
+               clientes.nombre,
+               COALESCE(clientes.telefono, ''),
+               membresias.nombre_plan,
+               suscripciones.fecha_inicio,
+               suscripciones.fecha_vencimiento,
+               suscripciones.pagado,
+               suscripciones.pendiente,
+               suscripciones.id
+        FROM suscripciones
+        JOIN clientes   ON suscripciones.cliente_id   = clientes.id
+        JOIN membresias ON suscripciones.membresia_id = membresias.id
+        WHERE suscripciones.fecha_vencimiento < ?
+        ORDER BY suscripciones.fecha_vencimiento DESC
+    """, (hoy,))
+    datos = cur.fetchall()
+    con.close()
+    return datos
+
+
 # -------- CONTAR SUSCRIPCIONES VENCIDAS --------
 def contar_suscripciones_vencidas():
     con = _con()

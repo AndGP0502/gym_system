@@ -8,6 +8,7 @@ from ui.pagos_ui import abrir_ventana_pagos
 from ui.suscripciones_ui import abrir_ventana_suscripciones
 from ui.membresias_ui import abrir_ventana_membresias
 from ui.asistencia_ui import abrir_ventana_asistencia
+from ui.caducados_ui import abrir_ventana_caducados
 
 from modulos.clientes import contar_clientes, contar_clientes_filtro
 from modulos.membresias import contar_membresias
@@ -312,6 +313,11 @@ def iniciar_ventana():
     ttk.Button(
         sidebar, text="🟢 Clientes Activos", bootstyle="success-outline",
         command=lambda: abrir_ventana_activos(ventana), **boton_style
+    ).pack(pady=6)
+
+    ttk.Button(
+        sidebar, text="🔴 Clientes Caducados", bootstyle="danger-outline",
+        command=lambda: abrir_ventana_caducados(ventana), **boton_style
     ).pack(pady=6)
 
     ttk.Button(

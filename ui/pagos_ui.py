@@ -1,5 +1,6 @@
 import sqlite3
 import os, sys
+from datetime import datetime
 
 # FIX: reemplazar función _get_db_path local por rutas centralizadas
 from modulos.rutas import get_db_path
@@ -15,6 +16,8 @@ from modulos.pagos import (
     ver_historial_pagos,
     listar_suscripciones_para_pago,
     buscar_cliente_pagos,
+    buscar_cliente_pagos_texto,
+    ver_clientes_caducados_pagos,
     eliminar_pago
 )
 from modulos.clientes import ver_clientes
@@ -119,11 +122,11 @@ def abrir_ventana_pagos(parent):
     frame_clientes.grid(row=0, column=0, padx=(0, 8), sticky="nsew")
     frame_cs = ttk.Frame(frame_clientes)
     frame_cs.pack(fill=BOTH, expand=YES)
-    tabla_clientes = ttk.Treeview(frame_cs, columns=("ID", "Nombre"),
+    tabla_clientes = ttk.Treeview(frame_cs, columns=("Cedula", "Nombre"),
                                    show="headings", height=6, style="Pagos.Treeview")
-    tabla_clientes.heading("ID",     text="ID")
+    tabla_clientes.heading("Cedula", text="Cedula")
     tabla_clientes.heading("Nombre", text="Nombre")
-    tabla_clientes.column("ID",     width=100, anchor="center", minwidth=60)
+    tabla_clientes.column("Cedula", width=140, anchor="center", minwidth=80)
     tabla_clientes.column("Nombre", width=260, anchor="w",      minwidth=100)
     tabla_clientes.pack(side=LEFT, fill=BOTH, expand=YES)
     sc = ttk.Scrollbar(frame_cs, orient=VERTICAL, command=tabla_clientes.yview)
@@ -135,12 +138,12 @@ def abrir_ventana_pagos(parent):
     frame_sus.grid(row=0, column=1, padx=(8, 0), sticky="nsew")
     frame_ss = ttk.Frame(frame_sus)
     frame_ss.pack(fill=BOTH, expand=YES)
-    tabla_sus = ttk.Treeview(frame_ss, columns=("ID", "Cliente", "Plan"),
+    tabla_sus = ttk.Treeview(frame_ss, columns=("Cedula", "Cliente", "Plan"),
                               show="headings", height=6, style="Pagos.Treeview")
-    tabla_sus.heading("ID",      text="ID Suscripción")
+    tabla_sus.heading("Cedula",  text="Cedula")
     tabla_sus.heading("Cliente", text="Cliente")
     tabla_sus.heading("Plan",    text="Plan")
-    tabla_sus.column("ID",      anchor="center", width=50,  minwidth=40)
+    tabla_sus.column("Cedula",  anchor="center", width=120, minwidth=80)
     tabla_sus.column("Cliente", anchor="w",      width=180, minwidth=80)
     tabla_sus.column("Plan",    anchor="w",      width=150, minwidth=80)
     tabla_sus.pack(side=LEFT, fill=BOTH, expand=YES)
@@ -185,7 +188,7 @@ def abrir_ventana_pagos(parent):
     frame_tabla = ttk.Labelframe(contenedor, text="Detalle de pagos y suscripciones",
                                   padding=10, bootstyle="info")
     frame_tabla.pack(fill=BOTH, expand=True, pady=8)
-    columnas = ("ID", "Cliente", "Plan", "Total", "Pagado", "Pendiente",
+    columnas = ("Cedula", "Cliente", "Plan", "Total", "Pagado", "Pendiente",
                 "Inicio", "Vence", "Acumulado ($)")
     tabla = ttk.Treeview(frame_tabla, columns=columnas, show="headings",
                          height=10, style="Pagos.Treeview")
@@ -198,6 +201,7 @@ def abrir_ventana_pagos(parent):
     tabla.tag_configure("pagado",  background="#b6f2c6", foreground="#0f5132")
     tabla.tag_configure("parcial", background="#fff3cd", foreground="#664d03")
     tabla.tag_configure("deuda",   background="#f8d7da", foreground="#842029")
+    tabla.tag_configure("vencido", background="#f5b7b1", foreground="#641e16")
     scroll_y = ttk.Scrollbar(frame_tabla, orient=VERTICAL,   command=tabla.yview)
     scroll_x = ttk.Scrollbar(frame_tabla, orient=HORIZONTAL, command=tabla.xview)
     tabla.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
@@ -219,7 +223,7 @@ def abrir_ventana_pagos(parent):
     frame_pago = ttk.Labelframe(frame_inferior, text="Registrar pago", padding=12)
     frame_pago.grid(row=0, column=1, padx=(8, 0), sticky="nsew")
 
-    ttk.Label(frame_buscar, text="Buscar por ID Cliente").grid(row=0, column=0, padx=8, pady=6, sticky=W)
+    ttk.Label(frame_buscar, text="Buscar por cedula o nombre").grid(row=0, column=0, padx=8, pady=6, sticky=W)
     entry_cliente = ttk.Entry(frame_buscar, width=18)
     entry_cliente.grid(row=0, column=1, padx=8, pady=6, sticky=W)
     ttk.Label(frame_buscar, text="ID Cliente").grid(row=1, column=0, padx=8, pady=6, sticky=W)
@@ -344,7 +348,10 @@ def abrir_ventana_pagos(parent):
 
     def cargar_clientes():
         for fila in tabla_clientes.get_children(): tabla_clientes.delete(fila)
-        for c in ver_clientes(): tabla_clientes.insert("", END, values=(c[0], c[1]))
+        # La columna ID ya no se muestra; el ID real del cliente se guarda como
+        # iid oculto de cada fila para poder usarlo al crear una suscripcion.
+        for c in ver_clientes():
+            tabla_clientes.insert("", END, iid=str(c[0]), values=(c[2], c[1]))
 
     def cargar_suscripciones(mes_num=None, anio=None):
         for fila in tabla.get_children(): tabla.delete(fila)
@@ -356,14 +363,20 @@ def abrir_ventana_pagos(parent):
             cliente = sus[1]; id_suscripcion = sus[2]; plan = sus[3]
             total   = float(sus[4]); pagado = float(sus[5])
             pendiente = max(0.0, float(sus[6])); inicio = sus[7]; vence = sus[8]
-            fila = (id_suscripcion, cliente, plan,
+            cedula = sus[9] if len(sus) > 9 else ""
+            fila = (cedula or "—", cliente, plan,
                     f"{total:.2f}", f"{pagado:.2f}", f"{pendiente:.2f}",
                     inicio, vence, f"${pagado:.2f}")
-            if total == 0 and pagado == 0:      tag = "deuda"
+            # FIX: si la membresia ya vencio, se marca en rojo (vencido)
+            # sin importar si esta pagada o no.
+            if vence and str(vence) < datetime.now().strftime("%Y-%m-%d"):
+                tag = "vencido"
+            elif total == 0 and pagado == 0:    tag = "deuda"
             elif pagado >= total and total > 0: tag = "pagado"
             elif pagado > 0:                    tag = "parcial"
             else:                               tag = "deuda"
-            tabla.insert("", END, values=fila, tags=(tag,))
+            # El ID de suscripcion ya no se muestra: se guarda como iid oculto
+            tabla.insert("", END, iid=str(id_suscripcion), values=fila, tags=(tag,))
         actualizar_cards(datos_filtrados)
         total_rec = sum(float(s[5]) for s in datos_filtrados)
         n = len(datos_filtrados)
@@ -374,29 +387,31 @@ def abrir_ventana_pagos(parent):
         lbl_mes_info.configure(text=f"{desc}  —  {n} suscripciones  |  Recaudado: ${total_rec:,.2f}")
 
     def buscar_cliente():
-        cliente_id = entry_cliente.get().strip()
-        if not cliente_id:
-            messagebox.showerror("Error", "Ingrese un ID de cliente", parent=ventana); return
-        try: cliente_id = int(cliente_id)
-        except ValueError:
-            messagebox.showerror("Error", "ID inválido", parent=ventana); return
-        datos = buscar_cliente_pagos(cliente_id)
+        texto = entry_cliente.get().strip()
+        if not texto:
+            messagebox.showerror("Error", "Ingrese una cedula o un nombre para buscar", parent=ventana); return
+        datos = buscar_cliente_pagos_texto(texto)
         if not datos:
-            messagebox.showinfo("Sin resultados", "El cliente no tiene suscripciones", parent=ventana); return
+            messagebox.showinfo("Sin resultados", "No se encontraron suscripciones para esa cedula o nombre", parent=ventana); return
         for fila in tabla.get_children(): tabla.delete(fila)
         pagadas = pendientes_c = 0; recaudado = 0.0
         for sus in datos:
-            id_s, cliente, plan, total, pagado, pendiente, inicio, vence = sus
+            id_s, cliente, plan, total, pagado, pendiente, inicio, vence, cedula = sus
             total = float(total); pagado = float(pagado)
             pendiente = max(0.0, float(pendiente)); recaudado += pagado
-            fila = (id_s, cliente, plan,
+            fila = (cedula or "—", cliente, plan,
                     f"{total:.2f}", f"{pagado:.2f}", f"{pendiente:.2f}",
                     inicio, vence, f"${pagado:.2f}")
-            if total == 0 and pagado == 0:         tag = "deuda";   pendientes_c += 1
+            # FIX: si la membresia ya vencio, se marca en rojo (vencido)
+            # sin importar si esta pagada o no.
+            if vence and str(vence) < datetime.now().strftime("%Y-%m-%d"):
+                tag = "vencido"; pendientes_c += 1
+            elif total == 0 and pagado == 0:       tag = "deuda";   pendientes_c += 1
             elif pagado >= total and total > 0:    tag = "pagado";  pagadas      += 1
             elif pagado > 0:                       tag = "parcial"; pendientes_c += 1
             else:                                  tag = "deuda";   pendientes_c += 1
-            tabla.insert("", END, values=fila, tags=(tag,))
+            # El ID de suscripcion ya no se muestra: se guarda como iid oculto
+            tabla.insert("", END, iid=str(id_s), values=fila, tags=(tag,))
         lbl_total_valor.config(text=str(len(datos)))
         lbl_total_pagadas.config(text=str(pagadas))
         lbl_total_pendientes.config(text=str(pendientes_c))
@@ -405,21 +420,22 @@ def abrir_ventana_pagos(parent):
     def seleccionar_fila(event):
         sel = tabla.selection()
         if not sel: return
-        sus_id = tabla.item(sel[0], "values")[0]
+        sus_id = sel[0]  # iid oculto = ID real de la suscripcion
         entry_id.delete(0, END); entry_id.insert(0, sus_id)
         _sync_sus_cambiar(sus_id)
 
     def seleccionar_cliente(event):
         item = tabla_clientes.selection()
         if not item: return
-        entry_cliente.delete(0, END)
-        entry_cliente.insert(0, tabla_clientes.item(item[0], "values")[0])
+        cliente_id = item[0]  # iid oculto = ID real del cliente
+        entry_id_cliente.delete(0, END)
+        entry_id_cliente.insert(0, cliente_id)
 
     def seleccionar_suscripcion(event):
         item = tabla_sus.selection()
         if not item: return
         entry_id.delete(0, END)
-        entry_id.insert(0, tabla_sus.item(item[0], "values")[0])
+        entry_id.insert(0, item[0])  # iid oculto = ID real de la suscripcion
 
     def pagar():
         suscripcion = entry_id.get().strip(); monto = entry_monto.get().strip()
@@ -463,9 +479,12 @@ def abrir_ventana_pagos(parent):
 
     def cargar_suscripciones_lista():
         for fila in tabla_sus.get_children(): tabla_sus.delete(fila)
-        for sus in ver_suscripciones_completas():
-            id_s, cliente, plan, inicio, vence, pagado, deuda = sus
-            tabla_sus.insert("", END, values=(id_s, cliente, plan))
+        # Usamos listar_suscripciones_para_pago porque incluye la cedula.
+        # El ID de suscripcion se guarda como iid oculto.
+        for sus in listar_suscripciones_para_pago():
+            id_s = sus[2]; cliente = sus[1]; plan = sus[3]
+            cedula = sus[9] if len(sus) > 9 else ""
+            tabla_sus.insert("", END, iid=str(id_s), values=(cedula or "—", cliente, plan))
 
     def eliminar_pago_seleccionado():
         suscripcion = entry_id.get().strip()
@@ -492,6 +511,12 @@ def abrir_ventana_pagos(parent):
         crear_suscripcion(cliente, membresia)
         messagebox.showinfo("Éxito", "Suscripción creada", parent=ventana)
         cargar_suscripciones(); cargar_suscripciones_lista()
+
+    # ---------- MODULO CLIENTES CADUCADOS ----------
+    def abrir_clientes_caducados():
+        # Usa el modulo dedicado (ui/caducados_ui.py) para no duplicar codigo
+        from ui.caducados_ui import abrir_ventana_caducados
+        abrir_ventana_caducados(ventana)
 
     def resetear_pago():
         suscripcion = entry_id.get().strip()
@@ -533,6 +558,7 @@ def abrir_ventana_pagos(parent):
     ttk.Button(frame_botones, text="Ver Historial",     bootstyle="warning",   width=14, command=ver_historial).pack(side="left", padx=4)
     ttk.Button(frame_botones, text="Eliminar Pago",     bootstyle="danger",    width=14, command=eliminar_pago_seleccionado).pack(side="left", padx=4)
     ttk.Button(frame_botones, text="Poner Pago en $0",  bootstyle="warning",   width=16, command=resetear_pago).pack(side="left", padx=4)
+    ttk.Button(frame_botones, text="Clientes Caducados", bootstyle="danger",   width=18, command=abrir_clientes_caducados).pack(side="left", padx=4)
     ttk.Button(frame_botones, text="📊 Reporte PDF",    bootstyle="info",      width=16,
                command=lambda: generar_pdf_reporte_mensual(
                    ventana,

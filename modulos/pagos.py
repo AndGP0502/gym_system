@@ -86,7 +86,8 @@ def listar_suscripciones_para_pago():
         SELECT
             c.id, c.nombre, s.id, m.nombre_plan,
             s.precio_total, s.pagado, s.pendiente,
-            s.fecha_inicio, s.fecha_vencimiento
+            s.fecha_inicio, s.fecha_vencimiento,
+            COALESCE(c.cedula, '')
         FROM suscripciones s
         JOIN clientes   c ON s.cliente_id   = c.id
         JOIN membresias m ON s.membresia_id = m.id
@@ -116,6 +117,50 @@ def eliminar_pago(pago_id):
     con.commit()
     con.close()
     return True
+
+
+def buscar_cliente_pagos_texto(texto):
+    """Busca suscripciones filtrando por cedula o nombre del cliente (busqueda parcial, no distingue mayus/minus)."""
+    con = _con()
+    cursor = con.cursor()
+    like = f"%{texto.strip()}%"
+    cursor.execute("""
+        SELECT
+            s.id, c.nombre, m.nombre_plan,
+            s.precio_total, s.pagado, s.pendiente,
+            s.fecha_inicio, s.fecha_vencimiento,
+            COALESCE(c.cedula, '')
+        FROM suscripciones s
+        JOIN clientes   c ON s.cliente_id   = c.id
+        JOIN membresias m ON s.membresia_id = m.id
+        WHERE c.nombre LIKE ? COLLATE NOCASE
+           OR c.cedula LIKE ? COLLATE NOCASE
+        ORDER BY s.id
+    """, (like, like))
+    datos = cursor.fetchall()
+    con.close()
+    return datos
+
+
+def ver_clientes_caducados_pagos():
+    """Suscripciones vencidas con detalle completo, para el modulo de clientes caducados en pagos."""
+    con = _con()
+    cursor = con.cursor()
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    cursor.execute("""
+        SELECT
+            c.id, c.nombre, m.nombre_plan,
+            s.precio_total, s.pagado, s.pendiente,
+            s.fecha_inicio, s.fecha_vencimiento, s.id
+        FROM suscripciones s
+        JOIN clientes   c ON s.cliente_id   = c.id
+        JOIN membresias m ON s.membresia_id = m.id
+        WHERE s.fecha_vencimiento < ?
+        ORDER BY s.fecha_vencimiento DESC
+    """, (hoy,))
+    datos = cursor.fetchall()
+    con.close()
+    return datos
 
 
 def buscar_cliente_pagos(cliente_id):
