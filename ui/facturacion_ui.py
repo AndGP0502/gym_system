@@ -654,10 +654,52 @@ def abrir_ventana_facturacion(parent):
         factura_id = int(valores[0])
         _generar_pdf_factura(factura_id, ventana)
 
-    ctk.CTkButton(frame_hist, text="📄 Generar PDF",
+    def eliminar_factura_seleccionada():
+        sel = tabla_hist.selection()
+        if not sel:
+            messagebox.showwarning("Sin selección",
+                "Selecciona una factura del historial.", parent=ventana)
+            return
+        valores    = tabla_hist.item(sel[0], "values")
+        factura_id = int(valores[0])
+        estado     = (valores[4] or "").upper()
+        cliente    = valores[2]
+
+        if estado == "AUTORIZADO":
+            messagebox.showerror("No permitido",
+                "No se puede eliminar una factura AUTORIZADA.\n\n"
+                "Es un comprobante válido ante el SRI; para dejarla sin efecto "
+                "debes usar el proceso de anulación del SRI.", parent=ventana)
+            return
+
+        if not messagebox.askyesno("Confirmar eliminación",
+                f"¿Eliminar la factura #{factura_id} de {cliente} (estado {estado})?\n\n"
+                "Esta acción no se puede deshacer.", parent=ventana):
+            return
+
+        from services.factura_service import eliminar_factura
+        res = eliminar_factura(factura_id)
+        if res.get("ok"):
+            messagebox.showinfo("Eliminada",
+                f"Factura #{factura_id} eliminada.", parent=ventana)
+            cargar_historial()
+            actualizar_cards()
+        else:
+            messagebox.showerror("Error", res.get("error", "No se pudo eliminar."),
+                                 parent=ventana)
+
+    botones_hist = ctk.CTkFrame(frame_hist, fg_color="transparent")
+    botones_hist.pack(anchor="e", padx=20, pady=(0, 16))
+
+    ctk.CTkButton(botones_hist, text="📄 Generar PDF",
                   width=180, height=38, fg_color="#1f6aa5",
                   hover_color="#174f7a", font=("Segoe UI", 12, "bold"),
-                  command=generar_pdf_factura).pack(anchor="e", padx=20, pady=(0, 16))
+                  command=generar_pdf_factura).pack(side="left", padx=(0, 8))
+
+    ctk.CTkButton(botones_hist, text="🗑 Eliminar factura",
+                  width=180, height=38, fg_color="#7f1d1d",
+                  hover_color="#991b1b", font=("Segoe UI", 12, "bold"),
+                  command=eliminar_factura_seleccionada).pack(side="left")
 
     def cargar_historial():
         for row in tabla_hist.get_children():

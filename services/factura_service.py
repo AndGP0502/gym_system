@@ -293,3 +293,71 @@ def _es_error_secuencial(mensajes) -> bool:
             if "SECUENCIAL REGISTRADO" in str(m).upper():
                 return True
     return False
+
+# ──────────────────────────────────────────────────────────────────────
+# Eliminación de facturas
+# ──────────────────────────────────────────────────────────────────────
+
+ESTADOS_NO_VALIDOS = ("BORRADOR", "RECHAZADA", "ERROR", "NO AUTORIZADO", "PENDIENTE")
+
+
+def eliminar_factura(factura_id: int, permitir_autorizada: bool = False) -> dict:
+    """
+    Elimina una factura y sus detalles de la base local.
+
+    Por seguridad fiscal NO elimina facturas AUTORIZADAS: son comprobantes
+    válidos ante el SRI y borrarlas localmente no las anula (eso se hace por
+    el proceso de anulación del SRI). Devuelve {"ok": bool, ...}.
+    """
+    con = sqlite3.connect(DB_PATH)
+    try:
+        fila = con.execute(
+            "SELECT estado FROM facturas WHERE id = ?", (factura_id,)
+        ).fetchone()
+        if not fila:
+            return {"ok": False, "error": "La factura no existe."}
+
+        estado = (fila[0] or "BORRADOR").upper()
+        if estado == "AUTORIZADO" and not permitir_autorizada:
+            return {
+                "ok": False,
+                "error": ("No se puede eliminar una factura AUTORIZADA. "
+                          "Es un comprobante válido ante el SRI; para dejarla "
+                          "sin efecto usa el proceso de anulación del SRI."),
+            }
+
+        con.execute("DELETE FROM factura_detalle WHERE factura_id = ?", (factura_id,))
+        con.execute("DELETE FROM facturas WHERE id = ?", (factura_id,))
+        con.commit()
+        return {"ok": True, "estado": estado}
+    finally:
+        con.close()
+
+
+def eliminar_facturas_no_validas() -> int:
+    """
+    Borra todas las facturas que nunca llegaron a ser válidas
+    (BORRADOR, RECHAZADA, ERROR, NO AUTORIZADO, PENDIENTE) junto con sus
+    detalles. Las AUTORIZADAS quedan intactas. Devuelve cuántas eliminó.
+
+    Útil para limpiar de una sola vez los intentos fallidos de prueba.
+    """
+    marcadores = ",".join("?" * len(ESTADOS_NO_VALIDOS))
+    con = sqlite3.connect(DB_PATH)
+    try:
+        ids = [r[0] for r in con.execute(
+            f"SELECT id FROM facturas "
+            f"WHERE UPPER(COALESCE(estado,'BORRADOR')) IN ({marcadores})",
+            ESTADOS_NO_VALIDOS
+        ).fetchall()]
+        for fid in ids:
+            con.execute("DELETE FROM factura_detalle WHERE factura_id = ?", (fid,))
+        con.execute(
+            f"DELETE FROM facturas "
+            f"WHERE UPPER(COALESCE(estado,'BORRADOR')) IN ({marcadores})",
+            ESTADOS_NO_VALIDOS
+        )
+        con.commit()
+        return len(ids)
+    finally:
+        con.close()
