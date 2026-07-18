@@ -1,3 +1,4 @@
+from modulos.ventanas import maximizar
 import customtkinter as ctk
 from tkinter import ttk, messagebox
 import tkinter as tk
@@ -18,7 +19,7 @@ def abrir_ventana_clientes(parent):
 
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Gestión de Clientes")
-    ventana.state("zoomed")
+    maximizar(ventana)
     ventana.resizable(True, True)
     ventana.configure(fg_color="#2b2b2b")
 

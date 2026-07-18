@@ -1,3 +1,4 @@
+from modulos.ventanas import maximizar
 import customtkinter as ctk
 from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk, ImageDraw
@@ -37,7 +38,7 @@ def abrir_ficha_cliente(parent, cliente_id: int, nombre_cliente: str):
 
     popup = ctk.CTkToplevel(parent)
     popup.title(f"Ficha — {nombre_cliente}")
-    popup.state("zoomed")
+    maximizar(popup)
     popup.resizable(True, True)
     popup.attributes("-topmost", True)
     popup.after(300, lambda: popup.attributes("-topmost", False))

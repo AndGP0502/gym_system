@@ -1,3 +1,4 @@
+from modulos.ventanas import maximizar
 import sqlite3
 import os, sys
 from datetime import datetime
@@ -30,7 +31,7 @@ def abrir_ventana_pagos(parent):
 
     ventana = tb.Toplevel(parent)
     ventana.title("Gestión de Pagos")
-    ventana.state("zoomed")
+    maximizar(ventana)
     ventana.resizable(True, True)
     ventana.lift()
     ventana.focus_force()

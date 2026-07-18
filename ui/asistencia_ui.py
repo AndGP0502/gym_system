@@ -1,3 +1,4 @@
+from modulos.ventanas import maximizar
 import customtkinter as ctk
 from tkinter import ttk, messagebox
 import sqlite3
@@ -126,7 +127,7 @@ def registrar_asistencia(cedula: str) -> dict:
 def abrir_ventana_asistencia(parent):
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Registro de Asistencia")
-    ventana.state("zoomed")
+    maximizar(ventana)
     ventana.resizable(True, True)
     ventana.attributes("-topmost", True)
     ventana.after(300, lambda: ventana.attributes("-topmost", False))

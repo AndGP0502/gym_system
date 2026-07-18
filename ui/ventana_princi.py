@@ -1,3 +1,4 @@
+from modulos.ventanas import maximizar
 import ttkbootstrap as ttk
 import webbrowser
 from ttkbootstrap.constants import *
@@ -44,7 +45,7 @@ def iniciar_ventana():
 
     ventana = ttk.Window(themename="darkly")
     ventana.title("Sistema de Gestión de Gimnasio")
-    ventana.state("zoomed")
+    maximizar(ventana)
 
     # ---------------- POPUP DE CONTACTO ----------------
 

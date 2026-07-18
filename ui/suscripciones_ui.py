@@ -1,3 +1,4 @@
+from modulos.ventanas import maximizar
 import customtkinter as ctk
 from tkinter import ttk, messagebox, simpledialog
 import tkinter as tk
@@ -83,7 +84,7 @@ def abrir_ventana_suscripciones(parent):
 
     ventana = ctk.CTkToplevel(parent)
     ventana.title("Suscripciones")
-    ventana.state("zoomed")
+    maximizar(ventana)
     ventana.resizable(True, True)
 
     ventana.attributes("-topmost", True)
